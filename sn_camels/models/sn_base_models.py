@@ -21,8 +21,8 @@ import torch.nn as nn
 
 from kymatio import Scattering2D
 
-from create_filters import *
-from models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
+from sn_camels.models.create_filters import *
+from sn_camels.models.models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
 
 
 class InvalidInitializationException(Exception):

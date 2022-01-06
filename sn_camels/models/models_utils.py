@@ -12,6 +12,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
+from sn_camels.models.create_filters import morlets
 
 
 def get_filters_visualization(psi, J, L, mode ='fourier'):
@@ -229,11 +230,6 @@ def vizMatches(params1,angles1,params2,angles2,row_ind,col_ind,device):
 
     f.subplots_adjust(wspace=0, hspace=0.2)
     return f
-
-
-
-
-from create_filters import morlets
 
 def create_filter(theta,slant,xi,sigma):
     n_filters = 1
