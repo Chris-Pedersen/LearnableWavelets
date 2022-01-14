@@ -15,6 +15,16 @@ from sn_camels.camels.camels_dataset import *
 
 """ Base script to test a scattering network on a CAMELs dataset """
 
+## Check if CUDA available
+if torch.cuda.is_available():
+    print("CUDA Available")
+    device = torch.device('cuda')
+    use_cuda=True
+else:
+    print('CUDA Not Available')
+    device = torch.device('cpu')
+    use_cuda=False
+
 
 ## First create a scattering network object
 scatteringBase = baseModelFactory( #creat scattering base model
@@ -29,7 +39,7 @@ scatteringBase = baseModelFactory( #creat scattering base model
     lr_orientation=0.1,
     lr_scattering=0.1,
     filter_video=False,
-    device="cpu",
+    device=device,
     use_cuda=False
 )
 
@@ -41,19 +51,12 @@ top = topModelFactory( #create cnn, mlp, linearlayer, or other
     architecture="cnn",
     num_classes=12, 
     width=8, 
-    use_cuda=False
+    use_cuda=use_cuda
 )
 
 ## Merge these into a hybrid model
-hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=False)
+hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
 
-## Check if CUDA available
-if torch.cuda.is_available():
-    print("CUDA Available")
-    device = torch.device('cuda')
-else:
-    print('CUDA Not Available')
-    device = torch.device('cpu')
 cudnn.benchmark = True      #May train faster but cost more memory
 
 
@@ -170,7 +173,7 @@ for x, y in valid_loader:
 min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
 min_valid_loss = torch.mean(min_valid_loss).item()
 print('Initial valid loss = %.3e'%min_valid_loss)
-
+'''
 # do a loop over all epochs
 start = time.time()
 for epoch in range(epochs):
@@ -240,3 +243,4 @@ for epoch in range(epochs):
 
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
+'''
