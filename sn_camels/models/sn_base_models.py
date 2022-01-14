@@ -283,7 +283,6 @@ class sn_ScatteringBase(nn.Module):
             self.updateFilters()
             
         x = construct_scattering(ip, self.scattering, self.psi)
-        print(x.shape)
         x = x[:,:, -self.n_coefficients:,:,:]
         x = x.reshape(x.size(0), self.n_coefficients, x.size(3), x.size(4))
         return x
