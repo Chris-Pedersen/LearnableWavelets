@@ -107,7 +107,7 @@ print('Shape of the maps:',maps.shape)
 # define the array that will contain the indexes of the maps
 indexes = np.zeros(1000*splits, dtype=np.int32)
 
-# do a loop over all maps and choose the ones we want
+## do a loop over all maps and choose the ones we want
 count = 0
 for i in range(15000):
     if i%15 in np.arange(splits):  
