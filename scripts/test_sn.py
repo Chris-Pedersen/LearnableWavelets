@@ -40,7 +40,7 @@ scatteringBase = baseModelFactory( #creat scattering base model
     lr_scattering=0.1,
     filter_video=False,
     device=device,
-    use_cuda=False
+    use_cuda=use_cuda
 )
 
 ## Now create a network to follow the scattering layers
@@ -122,7 +122,7 @@ del maps
 
 # This routine returns the data loader need to train the network
 def create_dataset_multifield(mode, seed, fmaps, fparams, batch_size, splits, fmaps_norm,
-                              rot_flip_in_mem=True, shuffle=True, verbose=False):
+                              rot_flip_in_mem=rot_flip_in_mem, shuffle=True, verbose=False):
 
     # whether rotations and flippings are kept in memory
     if rot_flip_in_mem:
@@ -173,7 +173,7 @@ for x, y in valid_loader:
 min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
 min_valid_loss = torch.mean(min_valid_loss).item()
 print('Initial valid loss = %.3e'%min_valid_loss)
-'''
+
 # do a loop over all epochs
 start = time.time()
 for epoch in range(epochs):
@@ -243,4 +243,3 @@ for epoch in range(epochs):
 
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
-'''
