@@ -79,7 +79,7 @@ fmaps      = ['maps_Mcdm.npy'] #tuple containing the maps with the different fie
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 6   #number of maps per simulation
+splits     = 1   #number of maps per simulation
 
 # training parameters
 channels        = 1                #we only consider here 1 field
@@ -93,8 +93,8 @@ beta1 = 0.5
 beta2 = 0.999
 
 # hyperparameters
-batch_size = 128
-lr         = 1e-3
+batch_size = 1
+lr         = 1e-4
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
@@ -181,7 +181,7 @@ min_valid_loss = torch.mean(min_valid_loss).item()
 print('Initial valid loss = %.3e'%min_valid_loss)
 
 ## Single data batch
-data, targets=next(iter(train_loader))
+x, y=next(iter(train_loader))
 
 # do a loop over all epochs
 start = time.time()
@@ -190,7 +190,7 @@ for epoch in range(epochs):
     # do training
     train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
     train_loss, points = 0.0, 0
-    model.train()
+    model.eval()
     #for x, y in train_loader:
     bs   = x.shape[0]         #batch size
     x    = x.to(device)       #maps
@@ -198,6 +198,9 @@ for epoch in range(epochs):
     p    = model(x)           #NN output
     y_NN = p[:,g]             #posterior mean
     e_NN = p[:,h]             #posterior std
+    #print("Map=",x)
+    #print("Params=",y)
+    #print("Prediction=",y_NN)
     loss1 = torch.mean((y_NN - y)**2,                axis=0)
     loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
     loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
