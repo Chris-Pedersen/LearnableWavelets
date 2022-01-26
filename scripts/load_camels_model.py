@@ -1,4 +1,5 @@
 import numpy as np
+import optuna
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -10,8 +11,8 @@ import matplotlib.pyplot as plt
 # my modules
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
 from sn_camels.models.sn_hybrid_models import sn_HybridModel
+from sn_camels.models.camels_models import model_o3_err
 from sn_camels.camels.camels_dataset import *
-
 
 """ Base script to test a scattering network on a CAMELs dataset """
 
@@ -117,7 +118,7 @@ valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_si
 
 ## In this script we load the weights for a given trial from the CAMELs MFD work
 fweights   = '/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/inference/weights/weights_IllustrisTNG_Mcdm_50_all_steps_500_500_o3.pt'
-fdatabase  = '/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/inference/databases/IllustrisTNG_o3_Mcdm_all_steps_500_500_o3.db'
+fdatabase  = 'sqlite:////mnt/home/cpedersen/Data/CAMELS_test/databases/IllustrisTNG_o3_Mcdm_all_steps_500_500_o3.db'
 study_name = 'wd_dr_hidden_lr_o3' 
 
 study = optuna.load_study(study_name=study_name, storage=fdatabase)
