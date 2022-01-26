@@ -93,7 +93,7 @@ beta1 = 0.5
 beta2 = 0.999
 
 # hyperparameters
-batch_size = 1
+batch_size = 3
 lr         = 1e-4
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
@@ -190,7 +190,7 @@ for epoch in range(epochs):
     # do training
     train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
     train_loss, points = 0.0, 0
-    model.eval()
+    model.train()
     #for x, y in train_loader:
     bs   = x.shape[0]         #batch size
     x    = x.to(device)       #maps

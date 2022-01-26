@@ -92,7 +92,7 @@ lr         = 1e-3
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
-epochs     = 10    #number of epochs to train the network
+epochs     = 100    #number of epochs to train the network
 
 # output files names
 floss  = 'loss.txt'   #file with the training and validation losses for each epoch
