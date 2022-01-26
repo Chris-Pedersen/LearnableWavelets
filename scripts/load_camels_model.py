@@ -117,13 +117,13 @@ valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_si
 
 
 ## In this script we load the weights for a given trial from the CAMELs MFD work
-fweights   = '/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/inference/weights/weights_IllustrisTNG_Mcdm_50_all_steps_500_500_o3.pt'
+trial_number = 1
+fweights   = '/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/inference/weights/weights_IllustrisTNG_Mcdm_%d_all_steps_500_500_o3.pt' % trial_number
 fdatabase  = 'sqlite:////mnt/home/cpedersen/Data/CAMELS_test/databases/IllustrisTNG_o3_Mcdm_all_steps_500_500_o3.db'
 study_name = 'wd_dr_hidden_lr_o3' 
 
 study = optuna.load_study(study_name=study_name, storage=fdatabase)
 
-trial_number = 50
 trial = study.trials[trial_number]
 print("Trial number:  number {}".format(trial.number))
 print("Loss:          %.5e"%trial.value)
@@ -142,99 +142,5 @@ if os.path.exists(fweights):
     print('Weights loaded')
 else:
     raise Exception('file with weights not found!!!')
-'''
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
 
-print('Computing initial validation loss')
-model.eval()
-valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-min_valid_loss, points = 0.0, 0
-for x, y in valid_loader:
-      with torch.no_grad():
-          bs   = x.shape[0]                #batch size
-          x    = x.to(device=device)       #maps
-          y    = y.to(device=device)[:,g]  #parameters
-          p    = model(x)                  #NN output
-          y_NN = p[:,g]                    #posterior mean
-          e_NN = p[:,h]                    #posterior std
-          loss1 = torch.mean((y_NN - y)**2,                axis=0)
-          loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-          loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-          valid_loss1 += loss1*bs
-          valid_loss2 += loss2*bs
-          points += bs
-min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
-min_valid_loss = torch.mean(min_valid_loss).item()
-print('Initial valid loss = %.3e'%min_valid_loss)
 
-# do a loop over all epochs
-start = time.time()
-for epoch in range(epochs):
-
-    # do training
-    train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-    train_loss, points = 0.0, 0
-    model.train()
-    for x, y in train_loader:
-        bs   = x.shape[0]         #batch size
-        x    = x.to(device)       #maps
-        y    = y.to(device)[:,g]  #parameters
-        p    = model(x)           #NN output
-        y_NN = p[:,g]             #posterior mean
-        e_NN = p[:,h]             #posterior std
-        loss1 = torch.mean((y_NN - y)**2,                axis=0)
-        loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-        loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-        train_loss1 += loss1*bs
-        train_loss2 += loss2*bs
-        points      += bs
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        #if points>18000:  break
-    train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
-    train_loss = torch.mean(train_loss).item()
-
-    # do validation: cosmo alone & all params
-    valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-    valid_loss, points = 0.0, 0
-    model.eval()
-    for x, y in valid_loader:
-        with torch.no_grad():
-            bs    = x.shape[0]         #batch size
-            x     = x.to(device)       #maps
-            y     = y.to(device)[:,g]  #parameters
-            p     = model(x)           #NN output
-            y_NN  = p[:,g]             #posterior mean
-            e_NN  = p[:,h]             #posterior std
-            loss1 = torch.mean((y_NN - y)**2,                axis=0)
-            loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-            loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-            valid_loss1 += loss1*bs
-            valid_loss2 += loss2*bs
-            points     += bs
-    valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
-    valid_loss = torch.mean(valid_loss).item()
-
-    scheduler.step(valid_loss)
-
-    # verbose
-    print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
-
-    # save model if it is better
-    if valid_loss<min_valid_loss:
-        torch.save(model.state_dict(), fmodel)
-        min_valid_loss = valid_loss
-        print('(C) ', end='')
-    print('')
-
-    # save losses to file
-    f = open(floss, 'a')
-    f.write('%d %.5e %.5e\n'%(epoch, train_loss, valid_loss))
-    f.close()
-
-stop = time.time()
-print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
-'''
