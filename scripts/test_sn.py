@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
 from sn_camels.models.sn_hybrid_models import sn_HybridModel
 from sn_camels.camels.camels_dataset import *
-
+from sn_camels.models.camels_models import model_o3_err
+from sn_camels.utils.test_model import test_model
 
 """ Base script to test a scattering network on a CAMELs dataset """
 
@@ -92,7 +93,7 @@ lr         = 1e-3
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
-epochs     = 100    #number of epochs to train the network
+epochs     = 5    #number of epochs to train the network
 
 # output files names
 floss  = 'loss.txt'   #file with the training and validation losses for each epoch
@@ -144,9 +145,13 @@ print('\nPreparing validation set')
 valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_size, splits, fmaps_norm, 
                                          rot_flip_in_mem=True,  verbose=True)    
 
+# get test set
+print('\nPreparing validation set')
+test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
+                                         rot_flip_in_mem=True,  verbose=True)
 
-model = hybridModel
-#model = model_o3_err(hidden, dr, channels)
+#model = hybridModel
+model = model_o3_err(hidden, dr, channels)
 model.to(device=device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
@@ -243,3 +248,5 @@ for epoch in range(epochs):
 
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
+
+test_model(model,test_loader,device)
