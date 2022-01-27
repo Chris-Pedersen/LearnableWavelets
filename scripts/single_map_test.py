@@ -17,8 +17,13 @@ from sn_camels.camels.camels_dataset import *
 
 """ Base script to test a scattering network on a CAMELs dataset """
 
+epochs=2000
+lr=0.0001
+batch_size=5
+
 ## Initialise wandb
 wandb.login()
+wandb.config = {"learning_rate": lr, "epochs": epochs, "batch_size": batch_size}
 wandb.init(project="my-test-project", entity="chris-pedersen")
 
 ## Check if CUDA available
@@ -32,36 +37,6 @@ else:
     use_cuda=False
 
 
-## First create a scattering network object
-scatteringBase = baseModelFactory( #creat scattering base model
-    architecture='scattering',
-    J=2,
-    N=256,
-    M=256,
-    second_order=True,
-    initialization="Random",
-    seed=123,
-    learnable=True,
-    lr_orientation=0.1,
-    lr_scattering=0.1,
-    filter_video=False,
-    device=device,
-    use_cuda=use_cuda
-)
-
-## Now create a network to follow the scattering layers
-## can be MLP, linear, or cnn at the moment
-## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
-top = topModelFactory( #create cnn, mlp, linearlayer, or other
-    base=scatteringBase,
-    architecture="cnn",
-    num_classes=12, 
-    width=8, 
-    use_cuda=use_cuda
-)
-
-## Merge these into a hybrid model
-hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
 
 cudnn.benchmark = True      #May train faster but cost more memory
 
@@ -71,6 +46,9 @@ cudnn.benchmark = True      #May train faster but cost more memory
 ############################## Set up training params #################################################
 #######################################################################################################
 #######################################################################################################
+## model type
+model_type="sn" ## "sn" or "camels" for now
+
 ## camels path
 camels_path=os.environ['CAMELS_PATH']
 
@@ -93,12 +71,9 @@ beta1 = 0.5
 beta2 = 0.999
 
 # hyperparameters
-batch_size = 3
-lr         = 1e-4
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
-epochs     = 5000    #number of epochs to train the network
 
 # output files names
 floss  = 'loss.txt'   #file with the training and validation losses for each epoch
@@ -151,9 +126,48 @@ valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_si
                                          rot_flip_in_mem=True,  verbose=True)    
 
 
-#model = hybridModel
-model = model_o3_err(hidden, dr, channels)
+if model_type=="sn":
+    ## First create a scattering network object
+    scatteringBase = baseModelFactory( #creat scattering base model
+        architecture='scattering',
+        J=2,
+        N=256,
+        M=256,
+        second_order=True,
+        initialization="Random",
+        seed=123,
+        learnable=False,
+        lr_orientation=0.1,
+        lr_scattering=0.1,
+        filter_video=False,
+        device=device,
+        use_cuda=use_cuda
+    )
+
+    ## Now create a network to follow the scattering layers
+    ## can be MLP, linear, or cnn at the moment
+    ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
+    top = topModelFactory( #create cnn, mlp, linearlayer, or other
+        base=scatteringBase,
+        architecture="cnn",
+        num_classes=12,
+        width=8,
+        use_cuda=use_cuda
+    )
+
+    ## Merge these into a hybrid model
+    hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
+    model=hybridModel
+    print("scattering layer + cnn set up")
+elif model_type=="camels":
+    model = model_o3_err(hidden, dr, channels)
+    print("camels cnn model set up")
+else:
+    print("model type %s not recognised" % model_type)
 model.to(device=device)
+
+## wandb
+wandb.watch(model, log_freq=10)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
@@ -185,12 +199,16 @@ x, y=next(iter(train_loader))
 
 # do a loop over all epochs
 start = time.time()
-for epoch in range(epochs):
+if model_type=="camels" and batch_size==1:
+    model.eval()
+    print("Dropping batchnorm for camels cnn")
+else:
+    model.train()
 
+for epoch in range(epochs):
     # do training
     train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
     train_loss, points = 0.0, 0
-    model.train()
     #for x, y in train_loader:
     bs   = x.shape[0]         #batch size
     x    = x.to(device)       #maps
@@ -217,9 +235,10 @@ for epoch in range(epochs):
 
     # verbose
     print('%03d %.3e %.3e '%(epoch, train_loss, train_loss), end='')
+    print("")
 
-    print('')
-
+    if epoch % 10 == 0:
+        wandb.log({"loss": train_loss})
 
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))

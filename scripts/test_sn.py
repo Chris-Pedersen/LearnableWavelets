@@ -233,7 +233,9 @@ for epoch in range(epochs):
         y_NN = p[:,g]             #posterior mean
         e_NN = p[:,h]             #posterior std
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
+        print("train loss 1=",loss1)
         loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+        print("train loss 2=",loss2)
         loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
         train_loss1 += loss1*bs
         train_loss2 += loss2*bs
