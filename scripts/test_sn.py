@@ -5,7 +5,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import time, sys, os
-import matplotlib.pyplot as plt
+import wandb
 
 # my modules
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
@@ -15,6 +15,30 @@ from sn_camels.models.camels_models import model_o3_err
 from sn_camels.utils.test_model import test_model
 
 """ Base script to test a scattering network on a CAMELs dataset """
+
+epochs=100
+lr=1e-4
+batch_size=128
+model_type="camels" ## "sn" or "camels" for now
+# hyperparameters
+wd         = 0.0001  #value of weight decay
+dr         = 0.00    #dropout value for fully connected layers
+hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
+
+seed       = 1   #random seed to split maps among training, validation and testing
+splits     = 6   #number of maps per simulation
+
+config = {"learning rate": lr,
+                 "epochs": epochs,
+                 "batch size": batch_size,
+                 "network": model_type,
+                 "weight decay": wd,
+                 "dropout": dr,
+                 "splits":splits}
+
+## Initialise wandb
+wandb.login()
+wandb.init(project="my-test-project", entity="chris-pedersen",config=config)
 
 ## Check if CUDA available
 if torch.cuda.is_available():
@@ -58,13 +82,7 @@ rot_flip_in_mem = False            #whether rotations and flipings are kept in m
 beta1 = 0.5
 beta2 = 0.999
 
-# hyperparameters
-batch_size = 128
-lr         = 1e-3
-wd         = 0.0005  #value of weight decay
-dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
-epochs     = 20    #number of epochs to train the network
 
 # output files names
 floss  = 'loss.txt'   #file with the training and validation losses for each epoch
@@ -121,6 +139,9 @@ print('\nPreparing validation set')
 test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
                                          rot_flip_in_mem=rot_flip_in_mem,  verbose=True)
 
+num_train_maps=train_loader.dataset.x.size
+wandb.config.update({"no. training maps": num_train_maps})
+
 if model_type=="sn":
     ## First create a scattering network object
     scatteringBase = baseModelFactory( #creat scattering base model
@@ -160,6 +181,9 @@ elif model_type=="camels":
 else:
     print("model type %s not recognised" % model_type)
 model.to(device=device)
+
+# wandb
+wandb.watch(model, log_freq=10)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
@@ -202,9 +226,7 @@ for epoch in range(epochs):
         y_NN = p[:,g]             #posterior mean
         e_NN = p[:,h]             #posterior std
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
-        print("train loss 1=",loss1)
         loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-        print("train loss 2=",loss2)
         loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
         train_loss1 += loss1*bs
         train_loss2 += loss2*bs
@@ -216,6 +238,9 @@ for epoch in range(epochs):
         #if points>18000:  break
     train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
     train_loss = torch.mean(train_loss).item()
+
+    
+    wandb.log({"training loss": train_loss})
 
     # do validation: cosmo alone & all params
     valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
@@ -239,6 +264,8 @@ for epoch in range(epochs):
     valid_loss = torch.mean(valid_loss).item()
 
     scheduler.step(valid_loss)
+    wandb.log({"validation loss": valid_loss})
+
 
     # verbose
     print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
