@@ -17,12 +17,12 @@ from sn_camels.utils.test_model import test_model
 """ Base script to test a scattering network on a CAMELs dataset """
 
 epochs=100
-lr=1e-4
+lr=1e-3
 batch_size=128
-model_type="camels" ## "sn" or "camels" for now
+model_type="sn" ## "sn" or "camels" for now
 # hyperparameters
-wd         = 0.0001  #value of weight decay
-dr         = 0.00    #dropout value for fully connected layers
+wd         = 0.0005  #value of weight decay
+dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
 
 seed       = 1   #random seed to split maps among training, validation and testing
