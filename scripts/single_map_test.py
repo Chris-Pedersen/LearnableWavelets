@@ -23,8 +23,9 @@ batch_size=5
 
 ## Initialise wandb
 wandb.login()
-wandb.config = {"learning_rate": lr, "epochs": epochs, "batch_size": batch_size}
 wandb.init(project="my-test-project", entity="chris-pedersen")
+wandb.config = {"learning_rate": lr, "epochs": epochs, "batch_size": batch_size}
+
 
 ## Check if CUDA available
 if torch.cuda.is_available():
@@ -47,7 +48,7 @@ cudnn.benchmark = True      #May train faster but cost more memory
 #######################################################################################################
 #######################################################################################################
 ## model type
-model_type="sn" ## "sn" or "camels" for now
+model_type="camels" ## "sn" or "camels" for now
 
 ## camels path
 camels_path=os.environ['CAMELS_PATH']

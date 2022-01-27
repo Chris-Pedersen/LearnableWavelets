@@ -27,37 +27,6 @@ else:
     use_cuda=False
 
 
-## First create a scattering network object
-scatteringBase = baseModelFactory( #creat scattering base model
-    architecture='scattering',
-    J=2,
-    N=256,
-    M=256,
-    second_order=True,
-    initialization="Random",
-    seed=123,
-    learnable=False,
-    lr_orientation=0.1,
-    lr_scattering=0.1,
-    filter_video=False,
-    device=device,
-    use_cuda=use_cuda
-)
-
-## Now create a network to follow the scattering layers
-## can be MLP, linear, or cnn at the moment
-## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
-top = topModelFactory( #create cnn, mlp, linearlayer, or other
-    base=scatteringBase,
-    architecture="cnn",
-    num_classes=12, 
-    width=8, 
-    use_cuda=use_cuda
-)
-
-## Merge these into a hybrid model
-hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
-
 cudnn.benchmark = True      #May train faster but cost more memory
 
 
