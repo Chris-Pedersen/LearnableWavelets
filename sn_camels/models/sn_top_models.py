@@ -29,7 +29,7 @@ class sn_MLP(nn.Module):
         if use_cuda:
             self.cuda()
 
-        fc1=  nn.Linear(int(3*M_coefficient*  N_coefficient*n_coefficients),  512)
+        fc1=  nn.Linear(int(*M_coefficient*  N_coefficient*n_coefficients),  512)
 
         self.layers = nn.Sequential(
             nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True),
@@ -196,34 +196,6 @@ class sn_CNN(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
-        return x
-
-    def countLearnableParams(self):
-        """returns the amount of learnable parameters in this model"""
-        count = 0
-        for t in self.parameters():
-            count += t.numel()
-        return count
-
-
-class sn_LinearLayer(nn.Module):
-    """
-    Linear layer fitted for scattering input
-    """
-    def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
-        super(sn_LinearLayer,self).__init__()
-        self.n_coefficients = n_coefficients
-        self.num_classes = num_classes
-        if use_cuda:
-            self.cuda()
-
-        self.fc1 = nn.Linear(int(3*M_coefficient*  N_coefficient*n_coefficients), num_classes)
-        self.bn0 = nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True)
-
-    def forward(self, x):
-        x = self.bn0(x)
-        x = x.reshape(x.shape[0], -1)
-        x = self.fc1(x)
         return x
 
     def countLearnableParams(self):
