@@ -109,20 +109,6 @@ maps = maps[indexes]
 np.save('maps_Mcdm.npy', maps)
 del maps
 
-# This routine returns the data loader need to train the network
-def create_dataset_multifield(mode, seed, fmaps, fparams, batch_size, splits, fmaps_norm,
-                              rot_flip_in_mem=rot_flip_in_mem, shuffle=True, verbose=False):
-
-    # whether rotations and flippings are kept in memory
-    if rot_flip_in_mem:
-        data_set = make_dataset_multifield(mode, seed, fmaps, fparams, splits, fmaps_norm, verbose)
-    else:
-        data_set = make_dataset_multifield2(mode, seed, fmaps, fparams, splits, fmaps_norm, verbose)
-
-    data_loader = DataLoader(dataset=data_set, batch_size=batch_size, shuffle=shuffle)
-    return data_loader
-
-
 # get training set
 print('\nPreparing training set')
 train_loader = create_dataset_multifield('train', seed, fmaps, fparams, batch_size, splits, fmaps_norm, 
