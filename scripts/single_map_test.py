@@ -14,17 +14,27 @@ from sn_camels.models.sn_hybrid_models import sn_HybridModel
 from sn_camels.models.camels_models import model_o3_err
 from sn_camels.camels.camels_dataset import *
 
-
-""" Base script to test a scattering network on a CAMELs dataset """
-
+""" Script to test the a model on a single map """
 epochs=2000
-lr=0.0001
-batch_size=5
+lr=1e-5
+batch_size=1
+model_type="sn" ## "sn" or "camels" for now
+# hyperparameters
+wd         = 0.0001  #value of weight decay
+dr         = 0.00    #dropout value for fully connected layers
+hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
+
+
+config = {"learning rate": lr,
+                 "epochs": epochs,
+                 "batch size": batch_size,
+                 "network": model_type,
+                 "weight decay": wd,
+                 "dropout": dr}
 
 ## Initialise wandb
 wandb.login()
-wandb.init(project="my-test-project", entity="chris-pedersen")
-wandb.config = {"learning_rate": lr, "epochs": epochs, "batch_size": batch_size}
+wandb.init(project="my-test-project", entity="chris-pedersen",config=config)
 
 
 ## Check if CUDA available
@@ -48,7 +58,7 @@ cudnn.benchmark = True      #May train faster but cost more memory
 #######################################################################################################
 #######################################################################################################
 ## model type
-model_type="camels" ## "sn" or "camels" for now
+model_type="sn" ## "sn" or "camels" for now
 
 ## camels path
 camels_path=os.environ['CAMELS_PATH']
@@ -123,7 +133,7 @@ if model_type=="sn":
         second_order=True,
         initialization="Random",
         seed=123,
-        learnable=False,
+        learnable=True,
         lr_orientation=0.1,
         lr_scattering=0.1,
         filter_video=False,
@@ -136,7 +146,7 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="cnn",
+        architecture="linear_layer",
         num_classes=12,
         width=8,
         use_cuda=use_cuda
@@ -162,6 +172,8 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=
 print("Train on a single map")
 ## Single data batch
 x, y=next(iter(train_loader))
+
+print("Training data shape: ",x.shape)
 
 # do a loop over all epochs
 start = time.time()
