@@ -159,28 +159,7 @@ wandb.watch(model, log_freq=10)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
 
-print('Computing initial validation loss')
-model.eval()
-valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-min_valid_loss, points = 0.0, 0
-for x, y in valid_loader:
-      with torch.no_grad():
-          bs   = x.shape[0]                #batch size
-          x    = x.to(device=device)       #maps
-          y    = y.to(device=device)[:,g]  #parameters
-          p    = model(x)                  #NN output
-          y_NN = p[:,g]                    #posterior mean
-          e_NN = p[:,h]                    #posterior std
-          loss1 = torch.mean((y_NN - y)**2,                axis=0)
-          loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-          loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-          valid_loss1 += loss1*bs
-          valid_loss2 += loss2*bs
-          points += bs
-min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
-min_valid_loss = torch.mean(min_valid_loss).item()
-print('Initial valid loss = %.3e'%min_valid_loss)
-
+print("Train on a single map")
 ## Single data batch
 x, y=next(iter(train_loader))
 
