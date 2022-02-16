@@ -64,7 +64,7 @@ model_type="sn" ## "sn" or "camels" for now
 camels_path=os.environ['CAMELS_PATH']
 
 # data parameters
-fmaps      = ['maps_Mcdm.npy'] #tuple containing the maps with the different fields to consider
+fmaps      = ['maps_Mcdm_single.npy'] #tuple containing the maps with the different fields to consider
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 seed       = 1   #random seed to split maps among training, validation and testing
@@ -109,7 +109,7 @@ print('Selected %d maps out of 15000'%count)
 
 # save these maps to a new file
 maps = maps[indexes]
-np.save('maps_Mcdm.npy', maps)
+np.save('maps_Mcdm_single.npy', maps)
 del maps
 
 # get training set
@@ -146,7 +146,7 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="linear_layer",
+        architecture="mlp",
         num_classes=12,
         width=8,
         use_cuda=use_cuda
