@@ -124,7 +124,7 @@ print('\nPreparing validation set')
 test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
                                          rot_flip_in_mem=rot_flip_in_mem,  verbose=True)
 
-num_train_maps=train_loader.dataset.x.size
+num_train_maps=len(train_loader.dataset.x)
 wandb.config.update({"no. training maps": num_train_maps})
 
 if model_type=="sn":
@@ -150,7 +150,7 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="cnn",
+        architecture="mlp",
         num_classes=12,
         width=8,
         use_cuda=use_cuda
