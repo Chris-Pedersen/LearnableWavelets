@@ -4,7 +4,7 @@ import numpy as np
 
 ## Default model from https://camels-multifield-dataset.readthedocs.io/en/latest/
 class model_o3_err(nn.Module):
-    def __init__(self, hidden, dr, channels):
+    def __init__(self, hidden, dr, channels,output_dim=12):
         super(model_o3_err, self).__init__()
         
         # input: 1x256x256 ---------------> output: 2*hiddenx128x128
@@ -81,7 +81,7 @@ class model_o3_err(nn.Module):
         self.P0  = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
 
         self.FC1  = nn.Linear(128*hidden, 64*hidden)  
-        self.FC2  = nn.Linear(64*hidden,  12)  
+        self.FC2  = nn.Linear(64*hidden,  output_dim)  
 
         self.dropout   = nn.Dropout(p=dr)
         self.ReLU      = nn.ReLU()
