@@ -256,12 +256,12 @@ arch = "camels" ## Which model architecture to use
 batch_size  = 128
 min_lr      = 1e-9
 epochs      = 200
-num_workers = 20    #number of workers to load data
+num_workers = 1    #number of workers to load data
 
 ## Optuna params
 study_name = "optuna/example-study"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
-n_trials=20
+n_trials=1
 
 # train networks with bayesian optimization
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
