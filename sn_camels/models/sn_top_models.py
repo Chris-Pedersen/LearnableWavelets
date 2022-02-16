@@ -23,17 +23,14 @@ class sn_MLP(nn.Module):
     """
        Multilayer perceptron fitted for scattering input
     """
-    def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
+    def __init__(self, num_classes, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
         super(sn_MLP,self).__init__()
-        selfnum_classes =num_classes
+        self.num_classes=num_classes
         if use_cuda:
             self.cuda()
 
-        fc1=  nn.Linear(int(*M_coefficient*  N_coefficient*n_coefficients),  512)
-
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True),
-            fc1,
+            nn.Linear(int(M_coefficient*N_coefficient*n_coefficients),  512),
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
