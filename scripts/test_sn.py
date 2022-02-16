@@ -83,13 +83,10 @@ beta2 = 0.999
 
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
 
-# output files names
-floss  = 'loss.txt'   #file with the training and validation losses for each epoch
-fmodel = 'weights.pt' #file containing the weights of the best-model
 #######################################################################################################
 #######################################################################################################
 
-
+'''
 fmaps2 = camels_path+"/Maps_Mcdm_IllustrisTNG_LH_z=0.00.npy"
 maps  = np.load(fmaps2)
 print('Shape of the maps:',maps.shape)
@@ -108,7 +105,7 @@ print('Selected %d maps out of 15000'%count)
 maps = maps[indexes]
 np.save('maps_Mcdm.npy', maps)
 del maps
-
+'''
 # get training set
 print('\nPreparing training set')
 train_loader = create_dataset_multifield('train', seed, fmaps, fparams, batch_size, splits, fmaps_norm, 
@@ -120,7 +117,7 @@ valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_si
                                          rot_flip_in_mem=rot_flip_in_mem,  verbose=True)    
 
 # get test set
-print('\nPreparing validation set')
+print('\nPreparing test set')
 test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
                                          rot_flip_in_mem=rot_flip_in_mem,  verbose=True)
 
@@ -137,7 +134,7 @@ if model_type=="sn":
         second_order=True,
         initialization="Random",
         seed=123,
-        learnable=False,
+        learnable=True,
         lr_orientation=0.1,
         lr_scattering=0.1,
         filter_video=False,
@@ -150,7 +147,7 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="mlp",
+        architecture="linear_layer",
         num_classes=12,
         width=8,
         use_cuda=use_cuda
@@ -257,15 +254,8 @@ for epoch in range(epochs):
 
     # save model if it is better
     if valid_loss<min_valid_loss:
-        torch.save(model.state_dict(), fmodel)
-        min_valid_loss = valid_loss
         print('(C) ', end='')
-    print('')
-
-    # save losses to file
-    f = open(floss, 'a')
-    f.write('%d %.5e %.5e\n'%(epoch, train_loss, valid_loss))
-    f.close()
+    print("")
 
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
