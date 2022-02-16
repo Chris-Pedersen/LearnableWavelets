@@ -18,29 +18,27 @@ import wandb
 
 ## Everything done within an Objective class now for optuna
 class Objective(object):
-    def __init__(self, device, seed, f_maps, f_params, batch_size, splits, f_maps_norm, 
-                 min_lr, beta1, beta2, epochs, root_out, monopole, arch,
-                 label, num_workers, params, rot_flip_in_mem, sim):
+    def __init__(self, device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
+                      arch, min_lr, beta1, beta2, epochs, monopole,
+                      num_workers, params, rot_flip_in_mem, smoothing):
         self.device          = device
         self.seed            = seed
-        self.f_maps          = f_maps
-        self.f_maps_norm     = f_maps_norm
-        self.f_params        = f_params
+        self.fmaps          = fmaps
+        self.fmaps_norm     = fmaps_norm
+        self.fparams        = fparams
         self.batch_size      = batch_size
         self.splits          = splits
-        self.arch      = arch
+        self.arch            = arch
         self.min_lr          = min_lr
         self.beta1           = beta1
         self.beta2           = beta2
         self.epochs          = epochs
-        self.root_out        = root_out
         self.monopole        = monopole
-        self.label           = label
         self.num_workers     = num_workers
         self.params          = params
         self.rot_flip_in_mem = rot_flip_in_mem
-        self.sim             = sim
-
+        self.smoothing       = smoothing
+        print("Done init")
 
     def __call__(self,trial):
         ## number of fields - hardcoded to 1 for now
@@ -50,12 +48,13 @@ class Objective(object):
         g = self.params      #posterior mean
         h = [6+i for i in g] #posterior variance
 
+        print("Suggesting trial")
         # get the value of the hyperparameters
         lr = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
         wd     = trial.suggest_float("wd", 1e-8, 1e-1, log=True)
         dr     = trial.suggest_float("dr", 0.0,  0.9)
         #hidden = trial.suggest_int("hidden", 6, 12)
-
+        print("Suggested trial")
         ## Store hyperparams in a config for wandb
         config = {"learning rate": lr,
                  "epochs": self.epochs,
@@ -64,9 +63,8 @@ class Objective(object):
                  "weight decay": wd,
                  "dropout": dr,
                  "splits":self.splits}
-
+        
         print('\nTrial number: {}'.format(trial.number))
-        print('Fields: {}'.format(self.fields))
         print('lr: {}'.format(lr))
         print('wd: {}'.format(wd))
         print('dr: {}'.format(dr))
@@ -74,7 +72,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="my-test-project", entity="chris-pedersen",config=config)
+        wandb.init(project="optuna-test", entity="chris-pedersen",config=config)
 
         ### LOAD DATA
         ## camels path
@@ -246,7 +244,7 @@ camels_path=os.environ['CAMELS_PATH']
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 fmaps      = ['maps_Mcdm.npy']
 fmaps_norm = [None]
-splits     = 1
+splits     = 6
 seed       = 123
 params     = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
@@ -266,7 +264,7 @@ storage_name = "sqlite:///{}.db".format(study_name)
 n_trials=20
 
 # train networks with bayesian optimization
-objective = Objective(device, seed, fmaps, fparams, batch_size, splits, fmaps_norm, 
+objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
                       arch, min_lr, beta1, beta2, epochs, monopole, 
                     num_workers, params, rot_flip_in_mem, smoothing)
 sampler = optuna.samplers.TPESampler(n_startup_trials=20)
