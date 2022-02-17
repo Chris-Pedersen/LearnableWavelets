@@ -248,6 +248,7 @@ class Objective(object):
 
         stop = time.time()
         print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
+        wandb.finish()
 
         return min_valid_loss
 
@@ -269,7 +270,7 @@ beta2 = 0.999
 ## camels path
 camels_path=os.environ['CAMELS_PATH']
 fparams    = camels_path+"/params_IllustrisTNG.txt"
-fmaps      = ['maps_Mcdm.npy']
+fmaps      = ['maps_Mcdm_sn.npy']
 fmaps_norm = [None]
 splits     = 1
 seed       = 123
@@ -296,7 +297,7 @@ print('Selected %d maps out of 15000'%count)
 
 # save these maps to a new file
 maps = maps[indexes]
-np.save('maps_Mcdm.npy', maps)
+np.save('maps_Mcdm_sn.npy', maps)
 del maps
 
 ## training parameters

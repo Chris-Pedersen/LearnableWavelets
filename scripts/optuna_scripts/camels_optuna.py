@@ -238,6 +238,8 @@ class Objective(object):
         stop = time.time()
         print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
 
+        wandb.finish()
+
         return min_valid_loss
 
 ##################################### INPUT ##########################################
@@ -260,7 +262,7 @@ camels_path=os.environ['CAMELS_PATH']
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 fmaps      = ['maps_Mcdm.npy']
 fmaps_norm = [None]
-splits     = 2
+splits     = 1
 seed       = 123
 params     = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
