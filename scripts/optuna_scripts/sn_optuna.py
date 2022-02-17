@@ -130,13 +130,13 @@ class Objective(object):
                 base=scatteringBase,
                 architecture="cnn",
                 num_classes=12,
-                width=8,
+                width=5,
                 use_cuda=True
             )
             
 
             ## Merge these into a hybrid model
-            hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
+            hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=True)
             model=hybridModel
             print("scattering layer + cnn set up")
         elif self.arch=="camels":
@@ -230,17 +230,17 @@ class Objective(object):
             scheduler.step(valid_loss)
             wandb.log({"validation loss": valid_loss})
 
-                if model_type=="sn" and model.scatteringBase.learnable==True:
-            wave_params=hybridModel.scatteringBase.params_filters
-            orientations=wave_params[0].cpu().detach().numpy()
-            xis=wave_params[1].cpu().detach().numpy()
-            sigmas=wave_params[2].cpu().detach().numpy()
-            slants=wave_params[3].cpu().detach().numpy()
-            for aa in range(len(orientations)):
-                wandb.log({"orientation_%d" % aa:orientations[aa]})
-                wandb.log({"xi_%d" % aa:xis[aa]})
-                wandb.log({"sigma_%d" % aa:sigmas[aa]})
-                wandb.log({"slant_%d" % aa:slants[aa]})
+            if self.arch=="sn" and model.scatteringBase.learnable==True:
+                wave_params=hybridModel.scatteringBase.params_filters
+                orientations=wave_params[0].cpu().detach().numpy()
+                xis=wave_params[1].cpu().detach().numpy()
+                sigmas=wave_params[2].cpu().detach().numpy()
+                slants=wave_params[3].cpu().detach().numpy()
+                for aa in range(len(orientations)):
+                    wandb.log({"orientation_%d" % aa:orientations[aa]})
+                    wandb.log({"xi_%d" % aa:xis[aa]})
+                    wandb.log({"sigma_%d" % aa:sigmas[aa]})
+                    wandb.log({"slant_%d" % aa:slants[aa]})
 
             # verbose
             print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
