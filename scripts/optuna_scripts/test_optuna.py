@@ -53,7 +53,6 @@ class Objective(object):
         lr = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
         wd     = trial.suggest_float("wd", 1e-8, 1e-1, log=True)
         dr     = trial.suggest_float("dr", 0.0,  0.9)
-        #hidden = trial.suggest_int("hidden", 6, 12)
         print("Suggested trial")
         ## Store hyperparams in a config for wandb
         config = {"learning rate": lr,
@@ -63,12 +62,26 @@ class Objective(object):
                  "weight decay": wd,
                  "dropout": dr,
                  "splits":self.splits}
-        
+
         print('\nTrial number: {}'.format(trial.number))
         print('lr: {}'.format(lr))
         print('wd: {}'.format(wd))
         print('dr: {}'.format(dr))
-        #print('hidden: {}'.format(hidden))
+
+
+        ## Architecture-specific params
+        if self.arch=="sn":
+            lr_orient = trial.suggest_float("lr_orient",1e-4,1,log=True)
+            lr_scat   = trial.suggest_float("lr_scat",1e-4,1,log=True)
+
+            config["lr_orient"]=lr_orient
+            config["lr_scat"]=lr_scat
+            print('lr_orient: {}'.format(lr_orient))
+            print('lr_scat: {}'.format(lr_scat))
+        else:
+            hidden = trial.suggest_int("hidden", 4, 12)
+            config["hidden"]=hidden
+            print('hidden: {}'.format(hidden))
 
         ## Initialise wandb
         wandb.login()
@@ -101,7 +114,7 @@ class Objective(object):
                 second_order=True,
                 initialization="Random",
                 seed=123,
-                learnable=False,
+                learnable=True,
                 lr_orientation=0.1,
                 lr_scattering=0.1,
                 filter_video=False,
@@ -109,6 +122,7 @@ class Objective(object):
                 use_cuda=True
             )
 
+            wandb.config.update({"learnable":scatteringBase.learnable})
             ## Now create a network to follow the scattering layers
             ## can be MLP, linear, or cnn at the moment
             ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
@@ -119,13 +133,14 @@ class Objective(object):
                 width=8,
                 use_cuda=True
             )
+            
 
             ## Merge these into a hybrid model
             hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
             model=hybridModel
             print("scattering layer + cnn set up")
         elif self.arch=="camels":
-            model = model_o3_err(self.hidden, dr, channels)
+            model = model_o3_err(hidden, dr, channels)
             print("camels cnn model set up")
         else:
             print("model type %s not recognised" % self.arch)
@@ -218,6 +233,7 @@ class Objective(object):
 
             # verbose
             print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
+            print("")
 
         stop = time.time()
         print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
@@ -244,13 +260,33 @@ camels_path=os.environ['CAMELS_PATH']
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 fmaps      = ['maps_Mcdm.npy']
 fmaps_norm = [None]
-splits     = 6
+splits     = 2
 seed       = 123
 params     = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
 rot_flip_in_mem = True  #whether rotations and flipings are kept in memory
 smoothing  = 0  ## Smooth the maps with a Gaussian filter? 0 for no
 arch = "camels" ## Which model architecture to use    
+
+
+fmaps2 = camels_path+"/Maps_Mcdm_IllustrisTNG_LH_z=0.00.npy"
+maps  = np.load(fmaps2)
+print('Shape of the maps:',maps.shape)
+# define the array that will contain the indexes of the maps
+indexes = np.zeros(1000*splits, dtype=np.int32)
+
+# do a loop over all maps and choose the ones we want
+count = 0
+for i in range(15000):
+    if i%15 in np.arange(splits):  
+      indexes[count] = i
+      count += 1
+print('Selected %d maps out of 15000'%count)
+
+# save these maps to a new file
+maps = maps[indexes]
+np.save('maps_Mcdm.npy', maps)
+del maps
 
 ## training parameters
 batch_size  = 128
@@ -261,7 +297,7 @@ num_workers = 1    #number of workers to load data
 ## Optuna params
 study_name = "optuna/example-study"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
-n_trials=1
+n_trials=20
 
 # train networks with bayesian optimization
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
