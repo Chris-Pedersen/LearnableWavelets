@@ -38,7 +38,7 @@ config = {"learning rate": lr,
 
 ## Initialise wandb
 wandb.login()
-wandb.init(project="my-test-project", entity="chris-pedersen",config=config)
+wandb.init(project="wavelet_track", entity="chris-pedersen",config=config)
 
 ## Check if CUDA available
 if torch.cuda.is_available():
@@ -68,7 +68,7 @@ fmaps      = ['maps_Mcdm.npy'] #tuple containing the maps with the different fie
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 6   #number of maps per simulation
+splits     = 1   #number of maps per simulation
 
 # training parameters
 channels        = 1                #we only consider here 1 field
@@ -86,7 +86,6 @@ hidden     = 5      #this determines the number of channels in the CNNs; integer
 #######################################################################################################
 #######################################################################################################
 
-'''
 fmaps2 = camels_path+"/Maps_Mcdm_IllustrisTNG_LH_z=0.00.npy"
 maps  = np.load(fmaps2)
 print('Shape of the maps:',maps.shape)
@@ -105,7 +104,7 @@ print('Selected %d maps out of 15000'%count)
 maps = maps[indexes]
 np.save('maps_Mcdm.npy', maps)
 del maps
-'''
+
 # get training set
 print('\nPreparing training set')
 train_loader = create_dataset_multifield('train', seed, fmaps, fparams, batch_size, splits, fmaps_norm, 
@@ -149,7 +148,7 @@ if model_type=="sn":
         base=scatteringBase,
         architecture="linear_layer",
         num_classes=12,
-        width=8,
+        width=6,
         use_cuda=use_cuda
     )
 
@@ -247,8 +246,20 @@ for epoch in range(epochs):
 
     scheduler.step(valid_loss)
     wandb.log({"validation loss": valid_loss})
+    if model_type=="sn" and model.scatteringBase.learnable==True:
+        wave_params=hybridModel.scatteringBase.params_filters
+        orientations=wave_params[0].cpu().detach().numpy()
+        xis=wave_params[1].cpu().detach().numpy()
+        sigmas=wave_params[2].cpu().detach().numpy()
+        slants=wave_params[3].cpu().detach().numpy()
+        for aa in range(len(orientations)):
+            wandb.log({"orientation_%d" % aa:orientations[aa]})
+            wandb.log({"xi_%d" % aa:xis[aa]})
+            wandb.log({"sigma_%d" % aa:sigmas[aa]})
+            wandb.log({"slant_%d" % aa:slants[aa]})
 
 
+            
     # verbose
     print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
 
