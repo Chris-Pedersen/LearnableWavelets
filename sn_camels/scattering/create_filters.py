@@ -19,7 +19,7 @@ Functions:
 import sys
 from pathlib import Path 
 import numpy as np
-from kymatio.scattering2d.core.scattering2d import scattering2d
+from sn_camels.scattering.scattering2d import scattering2d
 import matplotlib.pyplot as plt
 sys.path.append(str(Path.cwd()))
 import torch
