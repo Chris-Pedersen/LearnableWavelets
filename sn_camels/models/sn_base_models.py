@@ -19,7 +19,7 @@ import cv2
 
 import torch.nn as nn
 
-from kymatio import Scattering2D
+from kymatio.scattering2d.frontend.torch_frontend import ScatteringTorch2D
 
 from sn_camels.scattering.create_filters import *
 from sn_camels.models.models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
@@ -46,7 +46,7 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
     seed -- the seed used for creating randomly initialized filters
     requires_grad -- boolean idicating whether we want to learn params
     """
-    scattering = Scattering2D(J=J, shape=(M, N), frontend='torch')
+    scattering = ScatteringTorch2D(J=J, shape=(M, N))
 
     L = scattering.L
     if second_order:
