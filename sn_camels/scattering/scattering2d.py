@@ -2,6 +2,7 @@
 # Scientific Ancestry: Edouard Oyallon, Laurent Sifre, Joan Bruna, Edouard Oyallon, Muawiz Chaudhary
 ## Originally taken from https://github.com/kymatio/kymatio/blob/master/kymatio/scattering2d/core/scattering2d.py on 1 March 2022
 
+import torch
 
 def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
         out_type='array'):
@@ -89,5 +90,45 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
     return out_S
 
+def construct_scattering(input, scattering, psi):
+    """ Construct the scattering object
 
-__all__ = ['scattering2d']
+        Parameters:
+            input      -- input data
+            scattering -- Kymatio (https://www.kymat.io/) scattering object
+            psi        -- dictionnary of filters that is used in the kymatio code
+        Returns:
+            S -- output of the scattering network
+    """
+    if not torch.is_tensor(input):
+        raise TypeError('The input should be a PyTorch Tensor.')
+
+    if len(input.shape) < 2:
+        raise RuntimeError('Input tensor must have at least two dimensions.')
+
+    if not input.is_contiguous():
+        raise RuntimeError('Tensor must be contiguous.')
+
+    if (input.shape[-1] != scattering.N or input.shape[-2] != scattering.M) and not scattering.pre_pad:
+        raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (scattering.M, scattering.N))
+
+    if (input.shape[-1] != scattering.N_padded or input.shape[-2] != scattering.N_padded) and scattering.pre_pad:
+        raise RuntimeError('Padded tensor must be of spatial size (%i,%i).' % (scattering.M_padded, scattering.N_padded))
+
+    if not scattering.out_type in ('array', 'list'):
+        raise RuntimeError("The out_type must be one of 'array' or 'list'.")
+
+    batch_shape = input.shape[:-2]
+    signal_shape = input.shape[-2:]
+
+    input = input.reshape((-1,) + signal_shape)
+
+
+    S = scattering2d(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
+                        scattering.L, scattering.phi, psi, scattering.max_order, scattering.out_type)
+
+    if scattering.out_type == 'array':
+        scattering_shape = S.shape[-3:]
+        S = S.reshape(batch_shape + scattering_shape)
+
+    return S
