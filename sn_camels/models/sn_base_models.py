@@ -21,7 +21,7 @@ import torch.nn as nn
 
 from kymatio import Scattering2D
 
-from sn_camels.models.create_filters import *
+from sn_camels.scattering.create_filters import *
 from sn_camels.models.models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
 
 
@@ -356,11 +356,6 @@ class sn_ScatteringBase(nn.Module):
             angles2=self.compared_params_angle,
             device=self.device
         )
-
-
-
-    
-
 
     def saveFilterValues(self,scatteringActive):
         try:
