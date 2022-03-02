@@ -12,7 +12,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
-from sn_camels.models.create_filters import morlets
+from sn_camels.scattering.create_filters import morlets
 
 
 def get_filters_visualization(psi, J, L, mode ='fourier'):
@@ -106,9 +106,6 @@ def getAllFilters(psi, totalCount, scale, mode):
 
     temp = np.concatenate(rows, axis=0)
     return temp
-
-
-
 
 
 def getAngleDistance(one,two):
@@ -231,6 +228,7 @@ def vizMatches(params1,angles1,params2,angles2,row_ind,col_ind,device):
     f.subplots_adjust(wspace=0, hspace=0.2)
     return f
 
+
 def create_filter(theta,slant,xi,sigma):
     n_filters = 1
     device = None
@@ -251,8 +249,6 @@ def create_filter(theta,slant,xi,sigma):
     wavelet = morlets(grid, orientations, xis, sigmas, slants, device=device)
     
     return wavelet
-
-
 
 
 def compareParamsVisualization(params1,angles1,params2,angles2,device):
