@@ -17,16 +17,17 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
     # Define lists for output.
     out_S_0, out_S_1, out_S_2 = [], [], []
 
-    U_r = pad(x)
+    ## Map to complex
+    complex_maps = x.new_zeros(x.shape + (2,))
+    complex_maps[..., 0] = x
 
-    U_0_c = fft(U_r, 'C2C')
+    U_0_c = fft(complex_maps, 'C2C')
 
     # First low pass filter
     U_1_c = cdgmm(U_0_c, phi[0])
     U_1_c = subsample_fourier(U_1_c, k=2 ** J)
 
     S_0 = fft(U_1_c, 'C2R', inverse=True)
-    S_0 = unpad(S_0)
 
     out_S_0.append({'coef': S_0,
                     'j': (),
@@ -48,7 +49,6 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
         S_1_c = subsample_fourier(S_1_c, k=2 ** (J - j1))
 
         S_1_r = fft(S_1_c, 'C2R', inverse=True)
-        S_1_r = unpad(S_1_r)
 
         out_S_1.append({'coef': S_1_r,
                         'j': (j1,),
@@ -74,7 +74,6 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
             S_2_c = subsample_fourier(S_2_c, k=2 ** (J - j2))
 
             S_2_r = fft(S_2_c, 'C2R', inverse=True)
-            S_2_r = unpad(S_2_r)
 
             out_S_2.append({'coef': S_2_r,
                             'j': (j1, j2),
@@ -90,13 +89,103 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
     return out_S
 
-def construct_scattering(input, scattering, psi):
+def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
+        out_type='array'):
+    """ Function to take an input image and perform a series of scattering
+    convolutions."""
+    subsample_fourier = backend.subsample_fourier
+    modulus = backend.modulus
+    fft = backend.fft
+    cdgmm = backend.cdgmm
+    concatenate = backend.concatenate
+
+    # Define lists for output.
+    out_S_0, out_S_1, out_S_2 = [], [], []
+    
+    ## Map to complex
+    complex_maps = x.new_zeros(x.shape + (2,))
+    complex_maps[..., 0] = x
+
+    U_0_c = fft(complex_maps, 'C2C')
+
+    # First low pass filter
+    U_1_c = cdgmm(U_0_c, phi[0])
+    #U_1_c = subsample_fourier(U_1_c, k=2 ** J)
+
+
+    S_0 = fft(U_1_c, 'C2R', inverse=True)
+
+    out_S_0.append({'coef': S_0,
+                    'j': (),
+                    'theta': ()})
+
+    for n1 in range(len(psi)):
+        j1 = psi[n1]['j'] ## don't care about this any more
+        theta1 = psi[n1]['theta']
+
+        ## Wavelet convolution
+        U_1_c = cdgmm(U_0_c, psi[n1][0])
+
+        U_1_c = fft(U_1_c, 'C2C', inverse=True)
+        U_1_c = modulus(U_1_c)
+        U_1_c = fft(U_1_c, 'C2C')
+
+        ## Second low pass filter
+        S_1_c = cdgmm(U_1_c, phi[0])
+        ## No subsampling for now
+        #S_1_c = subsample_fourier(S_1_c, k=2 ** (J))
+
+        S_1_r = fft(S_1_c, 'C2R', inverse=True)
+
+        out_S_1.append({'coef': S_1_r,
+                        'j': (j1,),
+                        'theta': (theta1,)})
+
+        if max_order < 2:
+            continue
+        for n2 in range(len(psi)):
+            j2 = psi[n2]['j']
+            theta2 = psi[n2]['theta']
+            
+
+            U_2_c = cdgmm(U_1_c, psi[n2][0])
+            # No subsampling for now
+            #U_2_c = subsample_fourier(U_2_c, k=2 ** (j2 - j1))
+            U_2_c = fft(U_2_c, 'C2C', inverse=True)
+            U_2_c = modulus(U_2_c)
+            U_2_c = fft(U_2_c, 'C2C')
+
+            ## Low pass filter
+            S_2_c = cdgmm(U_2_c, phi[0])
+            
+            # No subsampling for now
+            #S_2_c = subsample_fourier(S_2_c, k=2 ** (J - j2))
+
+            S_2_r = fft(S_2_c, 'C2R', inverse=True)
+            
+
+            out_S_2.append({'coef': S_2_r,
+                            'j': (j1, j2),
+                            'theta': (theta1, theta2)})
+
+    out_S = []
+    out_S.extend(out_S_0)
+    out_S.extend(out_S_1)
+    out_S.extend(out_S_2)
+
+    if out_type == 'array':
+        out_S = concatenate([x['coef'] for x in out_S])
+
+    return out_S
+
+def construct_scattering(input, scattering, psi, learnable):
     """ Construct the scattering object
 
         Parameters:
             input      -- input data
             scattering -- Kymatio (https://www.kymat.io/) scattering object
             psi        -- dictionnary of filters that is used in the kymatio code
+            learnable  -- are we using learnable filters
         Returns:
             S -- output of the scattering network
     """
@@ -112,9 +201,6 @@ def construct_scattering(input, scattering, psi):
     if (input.shape[-1] != scattering.N or input.shape[-2] != scattering.M) and not scattering.pre_pad:
         raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (scattering.M, scattering.N))
 
-    if (input.shape[-1] != scattering.N_padded or input.shape[-2] != scattering.N_padded) and scattering.pre_pad:
-        raise RuntimeError('Padded tensor must be of spatial size (%i,%i).' % (scattering.M_padded, scattering.N_padded))
-
     if not scattering.out_type in ('array', 'list'):
         raise RuntimeError("The out_type must be one of 'array' or 'list'.")
 
@@ -123,8 +209,11 @@ def construct_scattering(input, scattering, psi):
 
     input = input.reshape((-1,) + signal_shape)
 
-
-    S = scattering2d(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
+    if learnable:
+        S = scattering2d_learn(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
+                        scattering.L, scattering.phi, psi, scattering.max_order, scattering.out_type)
+    else:
+        S = scattering2d(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
                         scattering.L, scattering.phi, psi, scattering.max_order, scattering.out_type)
 
     if scattering.out_type == 'array':

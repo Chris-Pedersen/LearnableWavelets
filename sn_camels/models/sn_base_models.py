@@ -47,7 +47,7 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
     seed -- the seed used for creating randomly initialized filters
     requires_grad -- boolean idicating whether we want to learn params
     """
-    scattering = Scattering2D(J=J, shape=(M, N), frontend='torch')
+    scattering = Scattering2D(J=J, shape=(M, N), frontend='torch',pre_pad=True)
 
     L = scattering.L
     if second_order:
@@ -72,7 +72,7 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
     else:
         raise InvalidInitializationException
 
-    shape = (scattering.M_padded, scattering.N_padded,)
+    shape = (scattering.M, scattering.N,)
     ranges = [torch.arange(-(s // 2), -(s // 2) + s, device=device, dtype=torch.float) for s in shape]
     grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
     params_filters =  [ param.to(device) for param in params_filters]
@@ -146,28 +146,8 @@ class sn_ScatteringBase(nn.Module):
         seed -- the random seed used to initialize the parameters
     """
 
-    def __str__(self):
-        tempL = " L" if self.learnable else "NL"
-        tempI = "TF" if self.initialization == 'Tight-Frame' else "R"
-        return f"{tempI} {tempL}"
-
-    def getFilterViz(self):
-        """generates plots of the filters for ['fourier','real', 'imag' ] visualizations"""
-        filter_viz = {}
-        for mode in ['fourier','real', 'imag' ]: # visualize wavlet filters before training
-            f = get_filters_visualization(self.psi, self.J, 8, mode=mode) 
-            filter_viz[mode] = f  
-
-        return filter_viz
-
-    def getOneFilter(self, count, scale, mode):
-        return getOneFilter(self.psi, count, scale, mode)
-
-    def getAllFilters(self, totalCount, scale, mode):
-        return getAllFilters(self.psi, totalCount, scale, mode)
-
     def __init__(self, J, N, M, second_order, initialization, seed, 
-                 device, learnable=True, lr_orientation=0.1, 
+                 device, learnable=True, lr_orientation=0.1,skip=True,
                  lr_scattering=0.1, monitor_filters=True, use_cuda=True,
                  filter_video=False):
         """Constructor for the leanable scattering nn.Module
@@ -184,7 +164,8 @@ class sn_ScatteringBase(nn.Module):
             device -- the device to place weights on
             learnable -- should the filters be learnable parameters of this model
             lr_orientation -- learning rate for the orientation of the scattering parameters
-            lr_scattering -- learning rate for scattering parameters other than orientation                 
+            lr_scattering -- learning rate for scattering parameters other than orientation
+            skip -- whether or not to include skip connections when using learnable filters                 
             monitor_filters -- boolean indicating whether to track filter distances from initialization
             filter_video -- whether to create filters from 
             use_cuda -- True if using GPU
@@ -201,8 +182,13 @@ class sn_ScatteringBase(nn.Module):
         self.initialization = initialization
         self.lr_scattering = lr_scattering
         self.lr_orientation = lr_orientation
-        self.M_coefficient = self.M/(2**self.J)
-        self.N_coefficient = self.N/(2**self.J)
+        self.skip = skip
+        if self.learnable:
+            self.M_coefficient = self.M ## Used to match the dimensionality
+            self.N_coefficient = self.N ## of the top layer
+        else:
+            self.M_coefficient = self.M/(2**self.J) ## Keep downsampling in fixed case
+            self.N_coefficient = self.N/(2**self.J) ## for now
         self.monitor_filters = monitor_filters
         self.filter_video = filter_video
         self.epoch = 0
@@ -211,6 +197,13 @@ class sn_ScatteringBase(nn.Module):
             J,N,M,second_order, initialization=self.initialization,seed=seed,
             requires_grad=learnable,use_cuda=self.use_cuda,device=self.device
         )
+        if self.learnable:
+            if self.skip:
+                ## Include zeroth and first order fields in forward pass output
+                self.n_coefficients=len(self.wavelets)**2+len(self.wavelets)+1
+            else:
+                ## Drop skip connections - take only the second order fields
+                self.n_coefficients=len(self.wavelets)**2
 
         self.filterTracker = {'1':[],'2':[],'3':[], 'scale':[], 'angle': []}
         self.filterGradTracker = {'angle': [],'1':[],'2':[],'3':[]}
@@ -239,11 +232,25 @@ class sn_ScatteringBase(nn.Module):
             self.videoWriters['fourier'] = cv2.VideoWriter('videos/scatteringFilterProgressionFourier{}epochs.avi'.format("--"),
                                                  cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
 
+    def __str__(self):
+        tempL = " L" if self.learnable else "NL"
+        tempI = "TF" if self.initialization == 'Tight-Frame' else "R"
+        return f"{tempI} {tempL}"
 
-    
-        # if True:
-        #     self.params_filters[0] = torch.tensor([np.pi/12 + np.random.rand(1)[0]*np.pi/360 for x in range(self.params_filters[0].size(0))], device=device, requires_grad=True, dtype=torch.float32)
+    def getFilterViz(self):
+        """generates plots of the filters for ['fourier','real', 'imag' ] visualizations"""
+        filter_viz = {}
+        for mode in ['fourier','real', 'imag' ]: # visualize wavlet filters before training
+            f = get_filters_visualization(self.psi, self.J, 8, mode=mode) 
+            filter_viz[mode] = f  
 
+        return filter_viz
+
+    def getOneFilter(self, count, scale, mode):
+        return getOneFilter(self.psi, count, scale, mode)
+
+    def getAllFilters(self, totalCount, scale, mode):
+        return getAllFilters(self.psi, totalCount, scale, mode)
 
     def train(self,mode=True):
         super().train(mode=mode)
@@ -283,7 +290,7 @@ class sn_ScatteringBase(nn.Module):
         if self.scatteringTrain: #update filters if training
             self.updateFilters()
             
-        x = construct_scattering(ip, self.scattering, self.psi)
+        x = construct_scattering(ip, self.scattering, self.psi, self.learnable)
         x = x[:,:, -self.n_coefficients:,:,:]
         x = x.reshape(x.size(0), self.n_coefficients, x.size(3), x.size(4))
         return x
