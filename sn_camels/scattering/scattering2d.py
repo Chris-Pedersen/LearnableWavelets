@@ -90,7 +90,7 @@ def scattering2d(x, pad, unpad, backend, J, L, phi, psi, max_order,
     return out_S
 
 def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
-        split_filters, out_type='array'):
+        split_filters, subsample ,out_type='array'):
     """ Function to take an input image and perform a series of scattering
     convolutions."""
     subsample_fourier = backend.subsample_fourier
@@ -110,7 +110,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
     # First low pass filter
     U_1_c = cdgmm(U_0_c, phi[0])
-    #U_1_c = subsample_fourier(U_1_c, k=2 ** J)
+    U_1_c = subsample_fourier(U_1_c, k=subsample)
 
 
     S_0 = fft(U_1_c, 'C2R', inverse=True)
@@ -133,8 +133,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
             ## Second low pass filter
             S_1_c = cdgmm(U_1_c, phi[0])
-            ## No subsampling for now
-            #S_1_c = subsample_fourier(S_1_c, k=2 ** (J))
+            S_1_c = subsample_fourier(S_1_c, k=subsample)
 
             S_1_r = fft(S_1_c, 'C2R', inverse=True)
 
@@ -150,8 +149,6 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
                 
 
                 U_2_c = cdgmm(U_1_c, psi[n2][0])
-                # No subsampling for now
-                #U_2_c = subsample_fourier(U_2_c, k=2 ** (j2 - j1))
                 U_2_c = fft(U_2_c, 'C2C', inverse=True)
                 U_2_c = modulus(U_2_c)
                 U_2_c = fft(U_2_c, 'C2C')
@@ -159,8 +156,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
                 ## Low pass filter
                 S_2_c = cdgmm(U_2_c, phi[0])
                 
-                # No subsampling for now
-                #S_2_c = subsample_fourier(S_2_c, k=2 ** (J - j2))
+                S_2_c = subsample_fourier(S_2_c, k=subsample)
 
                 S_2_r = fft(S_2_c, 'C2R', inverse=True)
                 
@@ -182,8 +178,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
             ## Second low pass filter
             S_1_c = cdgmm(U_1_c, phi[0])
-            ## No subsampling for now
-            #S_1_c = subsample_fourier(S_1_c, k=2 ** (J))
+            S_1_c = subsample_fourier(S_1_c, k=subsample)
 
             S_1_r = fft(S_1_c, 'C2R', inverse=True)
 
@@ -199,18 +194,13 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
                 
 
                 U_2_c = cdgmm(U_1_c, psi[n2][0])
-                # No subsampling for now
-                #U_2_c = subsample_fourier(U_2_c, k=2 ** (j2 - j1))
                 U_2_c = fft(U_2_c, 'C2C', inverse=True)
                 U_2_c = modulus(U_2_c)
                 U_2_c = fft(U_2_c, 'C2C')
 
                 ## Low pass filter
                 S_2_c = cdgmm(U_2_c, phi[0])
-                
-                # No subsampling for now
-                #S_2_c = subsample_fourier(S_2_c, k=2 ** (J - j2))
-
+                S_2_c = subsample_fourier(S_2_c, k=subsample)
                 S_2_r = fft(S_2_c, 'C2R', inverse=True)
                 
 
@@ -228,7 +218,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
     return out_S
 
-def construct_scattering(input, scattering, psi, learnable, split_filters):
+def construct_scattering(input, scattering, psi, learnable, split_filters, subsample):
     """ Construct the scattering object
 
         Parameters:
@@ -262,7 +252,7 @@ def construct_scattering(input, scattering, psi, learnable, split_filters):
 
     if learnable:
         S = scattering2d_learn(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
-                        scattering.L, scattering.phi, psi, scattering.max_order, split_filters, 
+                        scattering.L, scattering.phi, psi, scattering.max_order, split_filters, subsample,
                         scattering.out_type)
     else:
         S = scattering2d(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,

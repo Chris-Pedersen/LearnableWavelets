@@ -21,7 +21,7 @@ class InvalidArchitectureError(Exception):
 
 def baseModelFactory(architecture, J, N, M, second_order, initialization, seed, device, 
                      learnable=True, lr_orientation=0.1, lr_scattering=0.1, skip=True,
-                     split_filters=False,filter_video=False,
+                     split_filters=False, subsample=1, filter_video=False,
                      use_cuda=True):
     """Factory for the creation of the first layer of a hybrid model
     
@@ -37,7 +37,8 @@ def baseModelFactory(architecture, J, N, M, second_order, initialization, seed, 
             lr_orientation -- learning rate for the orientation of the scattering parameters
             lr_scattering -- learning rate for scattering parameters other than orientation
             skip -- whether or not to include skip connections when using learnable filters
-            split_filters -- split first and second order filters                 
+            split_filters -- split first and second order filters      
+            subsample -- amount to subsample the output fields           
             monitor_filters -- boolean indicating whether to track filter distances from initialization
             use_cuda -- True if using GPU
     """
@@ -58,6 +59,7 @@ def baseModelFactory(architecture, J, N, M, second_order, initialization, seed, 
             lr_scattering=lr_scattering,
             skip=skip,
             split_filters=split_filters,
+            subsample=subsample,
             filter_video=filter_video,
             device=device,
             use_cuda=use_cuda

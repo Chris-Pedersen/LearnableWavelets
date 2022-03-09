@@ -148,7 +148,7 @@ class sn_ScatteringBase(nn.Module):
 
     def __init__(self, J, N, M, second_order, initialization, seed, 
                  device, learnable=True, lr_orientation=0.1, lr_scattering=0.1,
-                 skip=True, split_filters=False, monitor_filters=True, use_cuda=True,
+                 skip=True, split_filters=False, subsample=1, monitor_filters=True, use_cuda=True,
                  filter_video=False):
         """Constructor for the leanable scattering nn.Module
         
@@ -166,7 +166,8 @@ class sn_ScatteringBase(nn.Module):
             lr_orientation -- learning rate for the orientation of the scattering parameters
             lr_scattering -- learning rate for scattering parameters other than orientation
             skip -- whether or not to include skip connections when using learnable filters
-            split_filters -- split first and second order filters                 
+            split_filters -- split first and second order filters
+            subsample -- factor by which to subsample output (1 for no subsampling)                 
             monitor_filters -- boolean indicating whether to track filter distances from initialization
             filter_video -- whether to create filters from 
             use_cuda -- True if using GPU
@@ -185,9 +186,10 @@ class sn_ScatteringBase(nn.Module):
         self.lr_orientation = lr_orientation
         self.skip = skip
         self.split_filters = split_filters
+        self.subsample = subsample
         if self.learnable:
-            self.M_coefficient = self.M ## Used to match the dimensionality
-            self.N_coefficient = self.N ## of the top layer
+            self.M_coefficient = self.M/self.subsample ## Used to match the dimensionality
+            self.N_coefficient = self.N/self.subsample ## of the top layer
         else:
             self.M_coefficient = self.M/(2**self.J) ## Keep downsampling in fixed case
             self.N_coefficient = self.N/(2**self.J) ## for now
@@ -309,7 +311,7 @@ class sn_ScatteringBase(nn.Module):
             self.updateFilters()
             
         x = construct_scattering(ip, self.scattering, self.psi,
-                                    self.learnable, self.split_filters)
+                                    self.learnable, self.split_filters,self.subsample)
         x = x[:,:, -self.n_coefficients:,:,:]
         x = x.reshape(x.size(0), self.n_coefficients, x.size(3), x.size(4))
         return x
