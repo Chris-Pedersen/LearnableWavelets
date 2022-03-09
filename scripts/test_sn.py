@@ -132,9 +132,9 @@ if model_type=="sn":
         second_order=True,
         initialization="Tight-Frame",
         seed=123,
-        learnable=True,
-        lr_orientation=0.05,
-        lr_scattering=0.05,
+        learnable=False,
+        lr_orientation=0.005,
+        lr_scattering=0.005,
         skip=False,
         split_filters=False,
         filter_video=False,
@@ -155,7 +155,7 @@ if model_type=="sn":
         base=scatteringBase,
         architecture="cnn",
         num_classes=12,
-        width=6,
+        width=5,
         use_cuda=use_cuda
     )
 
@@ -201,6 +201,18 @@ print('Initial valid loss = %.3e'%min_valid_loss)
 # do a loop over all epochs
 start = time.time()
 for epoch in range(epochs):
+    log_dic={}
+    if model_type=="sn":
+        wave_params=hybridModel.scatteringBase.params_filters
+        orientations=wave_params[0].cpu().detach().numpy()
+        xis=wave_params[1].cpu().detach().numpy()
+        sigmas=wave_params[2].cpu().detach().numpy()
+        slants=wave_params[3].cpu().detach().numpy()
+        for aa in range(len(orientations)):
+            log_dic["orientation_%d" % aa]=orientations[aa]
+            log_dic["xi_%d" % aa]=xis[aa]
+            log_dic["sigma_%d" % aa]=sigmas[aa]
+            log_dic["slant_%d" % aa]=slants[aa]
 
     # do training
     train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
@@ -249,26 +261,12 @@ for epoch in range(epochs):
     valid_loss = torch.mean(valid_loss).item()
 
     scheduler.step(valid_loss)
-    wandb.log({"training loss": train_loss,"validation loss": valid_loss})
-    if model_type=="sn" and model.scatteringBase.learnable==True:
-        wave_params=hybridModel.scatteringBase.params_filters
-        orientations=wave_params[0].cpu().detach().numpy()
-        xis=wave_params[1].cpu().detach().numpy()
-        sigmas=wave_params[2].cpu().detach().numpy()
-        slants=wave_params[3].cpu().detach().numpy()
-        for aa in range(len(orientations)):
-            wandb.log({"orientation_%d" % aa:orientations[aa]})
-            wandb.log({"xi_%d" % aa:xis[aa]})
-            wandb.log({"sigma_%d" % aa:sigmas[aa]})
-            wandb.log({"slant_%d" % aa:slants[aa]})
-
-
+    log_dic["training_loss"]=train_loss
+    log_dic["valid_loss"]=valid_loss
+    wandb.log(log_dic)
             
     # verbose
     print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
-
-    if valid_loss<min_valid_loss:
-        print('(C) ', end='')
     print("")
 
 stop = time.time()
