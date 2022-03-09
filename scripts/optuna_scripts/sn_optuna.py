@@ -85,7 +85,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="optuna sn 1kmaps sbatch", entity="chris-pedersen",config=config)
+        wandb.init(project="SN-debug-Mar8", entity="chris-pedersen",config=config)
 
         ### LOAD DATA
         ## camels path
@@ -117,12 +117,17 @@ class Objective(object):
                 learnable=True,
                 lr_orientation=lr_orient,
                 lr_scattering=lr_scat,
+                skip=True,
+                split_filters=True,
                 filter_video=False,
                 device=device,
                 use_cuda=True
             )
 
-            wandb.config.update({"learnable":scatteringBase.learnable})
+            wandb.config.update({"learnable":scatteringBase.learnable,
+                                  "skip":scatteringBase.skip,
+                                  "split_filters":scatteringBase.split_filters,
+                                  "n_coefficients":scatteringBase.n_coefficients})
             ## Now create a network to follow the scattering layers
             ## can be MLP, linear, or cnn at the moment
             ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
