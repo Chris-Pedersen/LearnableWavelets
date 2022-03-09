@@ -18,7 +18,7 @@ from sn_camels.utils.test_model import test_model
 
 epochs=100
 lr=1e-3
-batch_size=128
+batch_size=64
 model_type="sn" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
@@ -32,13 +32,12 @@ config = {"learning rate": lr,
                  "epochs": epochs,
                  "batch size": batch_size,
                  "network": model_type,
-                 "weight decay": wd,
                  "dropout": dr,
                  "splits":splits}
 
 ## Initialise wandb
 wandb.login()
-wandb.init(project="wavelet_track", entity="chris-pedersen",config=config)
+wandb.init(project="fixed_hyperparam_test", entity="chris-pedersen",config=config)
 
 ## Check if CUDA available
 if torch.cuda.is_available():
@@ -131,22 +130,30 @@ if model_type=="sn":
         N=256,
         M=256,
         second_order=True,
-        initialization="Random",
+        initialization="Tight-Frame",
         seed=123,
         learnable=True,
-        lr_orientation=0.1,
-        lr_scattering=0.1,
+        lr_orientation=0.05,
+        lr_scattering=0.05,
+        skip=False,
+        split_filters=False,
         filter_video=False,
+        subsample=4,
         device=device,
         use_cuda=use_cuda
     )
-
+    wandb.config.update({"learnable":scatteringBase.learnable,
+                         "skip":scatteringBase.skip,
+                         "split_filters":scatteringBase.split_filters,
+                         "subsample":scatteringBase.subsample,
+                         "scattering_output_dims":scatteringBase.M_coefficient,
+                         "n_coefficients":scatteringBase.n_coefficients})
     ## Now create a network to follow the scattering layers
     ## can be MLP, linear, or cnn at the moment
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="linear_layer",
+        architecture="cnn",
         num_classes=12,
         width=6,
         use_cuda=use_cuda
@@ -220,9 +227,6 @@ for epoch in range(epochs):
     train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
     train_loss = torch.mean(train_loss).item()
 
-    
-    wandb.log({"training loss": train_loss})
-
     # do validation: cosmo alone & all params
     valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
     valid_loss, points = 0.0, 0
@@ -245,7 +249,7 @@ for epoch in range(epochs):
     valid_loss = torch.mean(valid_loss).item()
 
     scheduler.step(valid_loss)
-    wandb.log({"validation loss": valid_loss})
+    wandb.log({"training loss": train_loss,"validation loss": valid_loss})
     if model_type=="sn" and model.scatteringBase.learnable==True:
         wave_params=hybridModel.scatteringBase.params_filters
         orientations=wave_params[0].cpu().detach().numpy()
@@ -263,7 +267,6 @@ for epoch in range(epochs):
     # verbose
     print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
 
-    # save model if it is better
     if valid_loss<min_valid_loss:
         print('(C) ', end='')
     print("")
