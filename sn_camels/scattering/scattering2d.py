@@ -143,7 +143,7 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
 
             if max_order < 2:
                 continue
-            for n2 in range(2,len(psi)):
+            for n2 in range(int(len(psi)/2),len(psi)):
                 j2 = psi[n2]['j']
                 theta2 = psi[n2]['theta']
                 
