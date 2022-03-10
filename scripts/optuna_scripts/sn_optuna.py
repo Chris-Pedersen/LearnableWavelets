@@ -82,7 +82,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="sn-learn-1k", entity="chris-pedersen",config=config)
+        wandb.init(project="sn-split-1k", entity="chris-pedersen",config=config)
 
         ### LOAD DATA
         ## camels path
@@ -115,7 +115,7 @@ class Objective(object):
                 lr_orientation=lr_orient,
                 lr_scattering=lr_scat,
                 skip=True,
-                split_filters=False,
+                split_filters=True,
                 subsample=4,
                 filter_video=False,
                 device=device,
@@ -135,7 +135,7 @@ class Objective(object):
                 base=scatteringBase,
                 architecture="cnn",
                 num_classes=12,
-                width=6,
+                width=5,
                 use_cuda=True
             )
             
@@ -182,6 +182,19 @@ class Objective(object):
         # do a loop over all epochs
         start = time.time()
         for epoch in range(epochs):
+            # Set up wandb log dictionary
+            log_dic={}
+            if self.arch=="sn":
+                wave_params=hybridModel.scatteringBase.params_filters
+                orientations=wave_params[0].cpu().detach().numpy()
+                xis=wave_params[1].cpu().detach().numpy()
+                sigmas=wave_params[2].cpu().detach().numpy()
+                slants=wave_params[3].cpu().detach().numpy()
+                for aa in range(len(orientations)):
+                    log_dic["orientation_%d" % aa]=orientations[aa]
+                    log_dic["xi_%d" % aa]=xis[aa]
+                    log_dic["sigma_%d" % aa]=sigmas[aa]
+                    log_dic["slant_%d" % aa]=slants[aa]
 
             # do training
             train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
@@ -230,19 +243,10 @@ class Objective(object):
             valid_loss = torch.mean(valid_loss).item()
 
             scheduler.step(valid_loss)
-            wandb.log({"training loss": train_loss,"validation loss": valid_loss})
-
-            if self.arch=="sn" and model.scatteringBase.learnable==True:
-                wave_params=hybridModel.scatteringBase.params_filters
-                orientations=wave_params[0].cpu().detach().numpy()
-                xis=wave_params[1].cpu().detach().numpy()
-                sigmas=wave_params[2].cpu().detach().numpy()
-                slants=wave_params[3].cpu().detach().numpy()
-                for aa in range(len(orientations)):
-                    wandb.log({"orientation_%d" % aa:orientations[aa]})
-                    wandb.log({"xi_%d" % aa:xis[aa]})
-                    wandb.log({"sigma_%d" % aa:sigmas[aa]})
-                    wandb.log({"slant_%d" % aa:slants[aa]})
+            ## log wandb values
+            log_dic["training_loss"]=train_loss
+            log_dic["valid_loss"]=valid_loss
+            wandb.log(log_dic)
 
             # verbose
             print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
@@ -309,7 +313,7 @@ epochs      = 100
 num_workers = 1    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/sn-learn-1k"  # Unique identifier of the study.
+study_name = "optuna/sn-split-1k"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
 n_trials=20
 
