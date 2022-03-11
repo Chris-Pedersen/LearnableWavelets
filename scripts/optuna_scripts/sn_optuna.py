@@ -52,7 +52,6 @@ class Objective(object):
         # get the value of the hyperparameters
         lr = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
         wd     = trial.suggest_float("wd", 1e-8, 1e-1, log=True)
-        dr     = trial.suggest_float("dr", 0.0,  0.9)
         print("Suggested trial")
         ## Store hyperparams in a config for wandb
         config = {"learning rate": lr,
@@ -60,19 +59,17 @@ class Objective(object):
                  "batch size": self.batch_size,
                  "network": self.arch,
                  "weight decay": wd,
-                 "dropout": dr,
                  "splits":self.splits}
 
         print('\nTrial number: {}'.format(trial.number))
         print('lr: {}'.format(lr))
         print('wd: {}'.format(wd))
-        print('dr: {}'.format(dr))
 
 
         ## Architecture-specific params
         if self.arch=="sn":
-            lr_orient = trial.suggest_float("lr_orient",1e-4,1,log=True)
-            lr_scat   = trial.suggest_float("lr_scat",1e-4,1,log=True)
+            lr_orient = trial.suggest_float("lr_orient",1e-3,1,log=True)
+            lr_scat   = trial.suggest_float("lr_scat",1e-3,1,log=True)
 
             config["lr_orient"]=lr_orient
             config["lr_scat"]=lr_scat
@@ -85,7 +82,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="optuna sn 1kmaps sbatch", entity="chris-pedersen",config=config)
+        wandb.init(project="sn-split-1k", entity="chris-pedersen",config=config)
 
         ### LOAD DATA
         ## camels path
@@ -117,12 +114,20 @@ class Objective(object):
                 learnable=True,
                 lr_orientation=lr_orient,
                 lr_scattering=lr_scat,
+                skip=True,
+                split_filters=True,
+                subsample=4,
                 filter_video=False,
                 device=device,
                 use_cuda=True
             )
 
-            wandb.config.update({"learnable":scatteringBase.learnable})
+            wandb.config.update({"learnable":scatteringBase.learnable,
+                                  "skip":scatteringBase.skip,
+                                  "split_filters":scatteringBase.split_filters,
+                                  "subsample":scatteringBase.subsample,
+                                  "scattering_output_dims":scatteringBase.M_coefficient,
+                                  "n_coefficients":scatteringBase.n_coefficients})
             ## Now create a network to follow the scattering layers
             ## can be MLP, linear, or cnn at the moment
             ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
@@ -177,6 +182,19 @@ class Objective(object):
         # do a loop over all epochs
         start = time.time()
         for epoch in range(epochs):
+            # Set up wandb log dictionary
+            log_dic={}
+            if self.arch=="sn":
+                wave_params=hybridModel.scatteringBase.params_filters
+                orientations=wave_params[0].cpu().detach().numpy()
+                xis=wave_params[1].cpu().detach().numpy()
+                sigmas=wave_params[2].cpu().detach().numpy()
+                slants=wave_params[3].cpu().detach().numpy()
+                for aa in range(len(orientations)):
+                    log_dic["orientation_%d" % aa]=orientations[aa]
+                    log_dic["xi_%d" % aa]=xis[aa]
+                    log_dic["sigma_%d" % aa]=sigmas[aa]
+                    log_dic["slant_%d" % aa]=slants[aa]
 
             # do training
             train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
@@ -203,9 +221,6 @@ class Objective(object):
             train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
             train_loss = torch.mean(train_loss).item()
 
-            
-            wandb.log({"training loss": train_loss})
-
             # do validation: cosmo alone & all params
             valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
             valid_loss, points = 0.0, 0
@@ -228,19 +243,10 @@ class Objective(object):
             valid_loss = torch.mean(valid_loss).item()
 
             scheduler.step(valid_loss)
-            wandb.log({"validation loss": valid_loss})
-
-            if self.arch=="sn" and model.scatteringBase.learnable==True:
-                wave_params=hybridModel.scatteringBase.params_filters
-                orientations=wave_params[0].cpu().detach().numpy()
-                xis=wave_params[1].cpu().detach().numpy()
-                sigmas=wave_params[2].cpu().detach().numpy()
-                slants=wave_params[3].cpu().detach().numpy()
-                for aa in range(len(orientations)):
-                    wandb.log({"orientation_%d" % aa:orientations[aa]})
-                    wandb.log({"xi_%d" % aa:xis[aa]})
-                    wandb.log({"sigma_%d" % aa:sigmas[aa]})
-                    wandb.log({"slant_%d" % aa:slants[aa]})
+            ## log wandb values
+            log_dic["training_loss"]=train_loss
+            log_dic["valid_loss"]=valid_loss
+            wandb.log(log_dic)
 
             # verbose
             print('%03d %.3e %.3e '%(epoch, train_loss, valid_loss), end='')
@@ -276,7 +282,7 @@ splits     = 1
 seed       = 123
 params     = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
-rot_flip_in_mem = True  #whether rotations and flipings are kept in memory
+rot_flip_in_mem = False  #whether rotations and flipings are kept in memory
 smoothing  = 0  ## Smooth the maps with a Gaussian filter? 0 for no
 arch = "sn" ## Which model architecture to use    
 
@@ -297,17 +303,17 @@ print('Selected %d maps out of 15000'%count)
 
 # save these maps to a new file
 maps = maps[indexes]
-np.save('maps_Mcdm_sn.npy', maps)
+np.save('maps_Mcdm_sn_learn.npy', maps)
 del maps
 
 ## training parameters
-batch_size  = 128
+batch_size  = 64
 min_lr      = 1e-9
 epochs      = 100
 num_workers = 1    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/sn-test"  # Unique identifier of the study.
+study_name = "optuna/sn-split-1k"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
 n_trials=20
 
