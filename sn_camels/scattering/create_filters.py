@@ -24,6 +24,59 @@ sys.path.append(str(Path.cwd()))
 import torch
 
 
+def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,requires_grad=True,use_cuda=True):
+    """Creates scattering parameters and replaces then with the specified initialization
+
+    Creates the scattering network, adds it to the passed device, and returns it for modification. Next,
+    based on input, we modify the filter initialization and use it to create new conv kernels. Then, we
+    update the psi Kymatio object to match the Kymatio API.
+
+    arguments:
+    use_cuda -- True if were using gpu
+    J -- scale of scattering (always 2 for now)
+    N -- height of the input image
+    M -- width of the input image
+    initilization -- the type of init: ['Tight-Frame' or 'Random']
+    seed -- the seed used for creating randomly initialized filters
+    requires_grad -- boolean idicating whether we want to learn params
+    """
+    scattering = Scattering2D(J=J, shape=(M, N), frontend='torch',pre_pad=True)
+
+    L = scattering.L
+    if second_order:
+        n_coefficients=  L*L*J*(J-1)//2 #+ 1 + L*J  
+    else: 
+        n_coefficients=  L*L*J*(J-1)//2 + 1 + L*J  
+    
+    K = n_coefficients*3
+
+    if use_cuda:
+        scattering = scattering.cuda()
+
+    phi, psi  = scattering.load_filters()
+    
+    params_filters = []
+
+    if initialization == "Tight-Frame":
+        params_filters = create_filters_params(J,L,requires_grad,device) #kymatio init
+    elif initialization == "Random":
+        num_filters= J*L
+        params_filters = create_filters_params_random(num_filters,requires_grad,device,seed) #random init
+    else:
+        raise InvalidInitializationException
+
+    shape = (scattering.M, scattering.N,)
+    ranges = [torch.arange(-(s // 2), -(s // 2) + s, device=device, dtype=torch.float) for s in shape]
+    grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
+    params_filters =  [ param.to(device) for param in params_filters]
+
+    wavelets  = morlets(shape, params_filters[0], params_filters[1], 
+                    params_filters[2], params_filters[3], device=device )
+    
+    psi = update_psi(J, psi, wavelets, device) #update psi to reflect the new conv filters
+
+    return scattering, psi, wavelets, params_filters, n_coefficients, grid
+
 def update_psi(J, psi, wavelets, device):
     """ Update the psi dictionnary with the new wavelets
 
