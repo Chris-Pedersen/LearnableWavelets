@@ -68,7 +68,7 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
         params_filters = create_filters_params(J,L,requires_grad,device) #kymatio init
     elif initialization == "Random":
         num_filters= J*L
-        params_filters = create_filters_params_random(num_filters,requires_grad,device) #random init
+        params_filters = create_filters_params_random(num_filters,requires_grad,device,seed) #random init
     else:
         raise InvalidInitializationException
 

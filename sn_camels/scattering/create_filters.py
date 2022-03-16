@@ -24,8 +24,6 @@ sys.path.append(str(Path.cwd()))
 import torch
 
 
-
-
 def update_psi(J, psi, wavelets, device):
     """ Update the psi dictionnary with the new wavelets
 
@@ -88,7 +86,7 @@ def periodize_filter_fft(x, res, device):
     periodized = x.reshape(res*2, s1// 2**res, res*2, s2//2**res).mean(dim=(0,2))
     return periodized 
 
-def create_filters_params_random(n_filters, is_scattering_dif, device):
+def create_filters_params_random(n_filters, is_scattering_dif, device, seed):
     """ Create reusable randomly initialized filter parameters: orientations, xis, sigmas, sigmas     
 
         Parameters:
@@ -99,10 +97,12 @@ def create_filters_params_random(n_filters, is_scattering_dif, device):
         Returns:
             params -- list that contains the parameters of the filters
     """
-    orientations = np.random.uniform(0,2*np.pi,n_filters) 
-    slants = np.random.uniform(0.5, 1.5,n_filters )
-    xis = np.random.uniform(0.5, 1, n_filters )
-    sigmas = np.log(np.random.uniform(np.exp(1), np.exp(5), n_filters ))
+
+    rng = np.random.RandomState(seed)
+    orientations = rng.uniform(0,2*np.pi,n_filters) 
+    slants = rng.uniform(0.5, 1.5,n_filters )
+    xis = rng.uniform(0.5, 1, n_filters )
+    sigmas = np.log(rng.uniform(np.exp(1), np.exp(5), n_filters ))
     
     xis = torch.tensor(xis, dtype=torch.float32, device=device)
     sigmas = torch.tensor(sigmas, dtype=torch.float32, device=device)
