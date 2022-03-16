@@ -19,10 +19,9 @@ Functions:
 import sys
 from pathlib import Path 
 import numpy as np
-import matplotlib.pyplot as plt
+from kymatio import Scattering2D
 sys.path.append(str(Path.cwd()))
 import torch
-
 
 def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,requires_grad=True,use_cuda=True):
     """Creates scattering parameters and replaces then with the specified initialization
