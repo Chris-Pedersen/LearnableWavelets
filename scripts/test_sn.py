@@ -11,7 +11,7 @@ import wandb
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
 from sn_camels.models.sn_hybrid_models import sn_HybridModel
 from sn_camels.camels.camels_dataset import *
-from sn_camels.models.camels_models import model_o3_err
+from sn_camels.models.camels_models import get_architecture
 from sn_camels.utils.test_model import test_model
 
 """ Base script to test a scattering network on a CAMELs dataset """
@@ -19,7 +19,8 @@ from sn_camels.utils.test_model import test_model
 epochs=100
 lr=1e-3
 batch_size=64
-model_type="sn" ## "sn" or "camels" for now
+project_name="camels_comparison"
+model_type="b" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
@@ -37,7 +38,7 @@ config = {"learning rate": lr,
 
 ## Initialise wandb
 wandb.login()
-wandb.init(project="fixed_hyperparam_test", entity="chris-pedersen",config=config)
+wandb.init(project="%s" % project_name, entity="chris-pedersen",config=config)
 
 ## Check if CUDA available
 if torch.cuda.is_available():
@@ -163,11 +164,9 @@ if model_type=="sn":
     hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
     model=hybridModel
     print("scattering layer + cnn set up")
-elif model_type=="camels":
-    model = model_o3_err(hidden, dr, channels)
-    print("camels cnn model set up")
 else:
-    print("model type %s not recognised" % model_type)
+    print("setting up model %s" % model_type)
+    model = get_architecture(model_type,hidden,dr,channels)
 model.to(device=device)
 
 # wandb
