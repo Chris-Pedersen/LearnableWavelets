@@ -97,6 +97,66 @@ class model_a(nn.Module):
 
 #####################################################################################
 #####################################################################################
+class model_a_err(nn.Module):
+    def __init__(self, hidden):
+        super(model_a, self).__init__()
+        
+        # input: 1x250x250 ---------------> output: hiddenx125x125
+        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+                            bias=True)
+        self.B1 = nn.BatchNorm2d(hidden)
+        # input: hiddenx125x125 ----------> output: 2*hiddenx62x62
+        self.C2 = nn.Conv2d(hidden,   2*hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B2 = nn.BatchNorm2d(2*hidden)
+        # input: 2*hiddenx62x62 --------> output: 4*hiddenx31x31
+        self.C3 = nn.Conv2d(2*hidden, 4*hidden, kernel_size=4, stride=2, padding=1,
+                            bias=True)
+        self.B3 = nn.BatchNorm2d(4*hidden)
+        # input: 4*hiddenx31x31 ----------> output: 8*hiddenx15x15
+        self.C4 = nn.Conv2d(4*hidden, 8*hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B4 = nn.BatchNorm2d(8*hidden)
+        # input: 8*hiddenx15x15 ----------> output: 16*hiddenx7x7
+        self.C5 = nn.Conv2d(8*hidden, 16*hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B5 = nn.BatchNorm2d(16*hidden)
+        # input: 16*hiddenx7x7 ----------> output: 100x3x3
+        self.C6 = nn.Conv2d(16*hidden, 100, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B6 = nn.BatchNorm2d(100)
+
+        self.FC1  = nn.Linear(100*3*3, 12)  
+
+        self.dropout   = nn.Dropout(p=0.5)
+        self.ReLU      = nn.ReLU()
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        self.tanh      = nn.Tanh()
+
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 1)
+            elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+
+
+    def forward(self, image):
+        x = self.LeakyReLU(self.C1(image))
+        x = self.LeakyReLU(self.B2(self.C2(x)))
+        x = self.LeakyReLU(self.B3(self.C3(x)))
+        x = self.LeakyReLU(self.B4(self.C4(x)))
+        x = self.LeakyReLU(self.B5(self.C5(x)))
+        x = self.LeakyReLU(self.B6(self.C6(x)))
+        x = x.view(image.shape[0],-1)
+        x = self.FC1(x)
+
+        return x
+####################################################################################
+####################################################################################
+
+#####################################################################################
+#####################################################################################
 class model_b(nn.Module):
     def __init__(self, hidden):
         super(model_b, self).__init__()
@@ -127,6 +187,66 @@ class model_b(nn.Module):
         self.B6 = nn.BatchNorm2d(100)
 
         self.FC1  = nn.Linear(100*3*3, 6)  
+
+        self.dropout   = nn.Dropout(p=0.5)
+        self.ReLU      = nn.ReLU()
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        self.tanh      = nn.Tanh()
+
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 1)
+            elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+
+
+    def forward(self, image):
+        x = self.LeakyReLU(self.C1(image))
+        x = self.LeakyReLU(self.B2(self.C2(x)))
+        x = self.LeakyReLU(self.B3(self.C3(x)))
+        x = self.LeakyReLU(self.B4(self.C4(x)))
+        x = self.LeakyReLU(self.B5(self.C5(x)))
+        x = self.LeakyReLU(self.B6(self.C6(x)))
+        x = x.view(image.shape[0],-1)
+        x = self.FC1(x)
+
+        return x
+####################################################################################
+####################################################################################
+
+#####################################################################################
+#####################################################################################
+class model_b_err(nn.Module):
+    def __init__(self, hidden):
+        super(model_b, self).__init__()
+        
+        # input: 1x250x250 ---------------> output: hiddenx125x125
+        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+                            bias=True)
+        self.B1 = nn.BatchNorm2d(hidden)
+        # input: hiddenx125x125 ----------> output: hiddenx62x62
+        self.C2 = nn.Conv2d(hidden,    hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B2 = nn.BatchNorm2d(hidden)
+        # input: hiddenx62x62 --------> output: 2*hiddenx31x31
+        self.C3 = nn.Conv2d(hidden, 2*hidden, kernel_size=4, stride=2, padding=1,
+                            bias=True)
+        self.B3 = nn.BatchNorm2d(2*hidden)
+        # input: 2*hiddenx31x31 ----------> output: 2*hiddenx15x15
+        self.C4 = nn.Conv2d(2*hidden, 2*hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B4 = nn.BatchNorm2d(2*hidden)
+        # input: 2*hiddenx15x15 ----------> output: 4*hiddenx7x7
+        self.C5 = nn.Conv2d(2*hidden, 4*hidden, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B5 = nn.BatchNorm2d(4*hidden)
+        # input: 4*hiddenx7x7 ----------> output: 100x3x3
+        self.C6 = nn.Conv2d(4*hidden, 100, kernel_size=5, stride=2, padding=1,
+                            bias=True)
+        self.B6 = nn.BatchNorm2d(100)
+
+        self.FC1  = nn.Linear(100*3*3, 12)  
 
         self.dropout   = nn.Dropout(p=0.5)
         self.ReLU      = nn.ReLU()
@@ -217,6 +337,66 @@ class model_c(nn.Module):
 
 #####################################################################################
 #####################################################################################
+class model_c_err(nn.Module):
+    def __init__(self, hidden):
+        super(model_c, self).__init__()
+        
+        # input: 1x250x250 ---------------> output: hiddenx125x125
+        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+                            padding_mode='circular', bias=True)
+        self.B1 = nn.BatchNorm2d(hidden)
+        # input: hiddenx125x125 ----------> output: hiddenx62x62
+        self.C2 = nn.Conv2d(hidden,   2*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B2 = nn.BatchNorm2d(2*hidden)
+        # input: hiddenx62x62 --------> output: 2*hiddenx31x31
+        self.C3 = nn.Conv2d(2*hidden, 4*hidden, kernel_size=4, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B3 = nn.BatchNorm2d(4*hidden)
+        # input: 2*hiddenx31x31 ----------> output: 2*hiddenx15x15
+        self.C4 = nn.Conv2d(4*hidden, 8*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B4 = nn.BatchNorm2d(8*hidden)
+        # input: 2*hiddenx15x15 ----------> output: 4*hiddenx7x7
+        self.C5 = nn.Conv2d(8*hidden, 16*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B5 = nn.BatchNorm2d(16*hidden)
+        # input: 4*hiddenx7x7 ----------> output: 100x3x3
+        self.C6 = nn.Conv2d(16*hidden, 100, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B6 = nn.BatchNorm2d(100)
+
+        self.FC1  = nn.Linear(100*3*3, 12)  
+
+        self.dropout   = nn.Dropout(p=0.5)
+        self.ReLU      = nn.ReLU()
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        self.tanh      = nn.Tanh()
+
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+
+
+    def forward(self, image):
+        x = self.LeakyReLU(self.C1(image))
+        x = self.LeakyReLU(self.B2(self.C2(x)))
+        x = self.LeakyReLU(self.B3(self.C3(x)))
+        x = self.LeakyReLU(self.B4(self.C4(x)))
+        x = self.LeakyReLU(self.B5(self.C5(x)))
+        x = self.LeakyReLU(self.B6(self.C6(x)))
+        x = x.view(image.shape[0],-1)
+        x = self.FC1(x)
+
+        return x
+####################################################################################
+####################################################################################
+
+#####################################################################################
+#####################################################################################
 class model_d(nn.Module):
     def __init__(self, hidden):
         super(model_d, self).__init__()
@@ -247,6 +427,66 @@ class model_d(nn.Module):
         self.B6 = nn.BatchNorm2d(32*hidden)
 
         self.FC1  = nn.Linear(32*hidden*3*3, 6)  
+
+        self.dropout   = nn.Dropout(p=0.5)
+        self.ReLU      = nn.ReLU()
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        self.tanh      = nn.Tanh()
+
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+
+
+    def forward(self, image):
+        x = self.LeakyReLU(self.C1(image))
+        x = self.LeakyReLU(self.B2(self.C2(x)))
+        x = self.LeakyReLU(self.B3(self.C3(x)))
+        x = self.LeakyReLU(self.B4(self.C4(x)))
+        x = self.LeakyReLU(self.B5(self.C5(x)))
+        x = self.LeakyReLU(self.B6(self.C6(x)))
+        x = x.view(image.shape[0],-1)
+        x = self.FC1(x)
+
+        return x
+####################################################################################
+####################################################################################
+
+#####################################################################################
+#####################################################################################
+class model_d_err(nn.Module):
+    def __init__(self, hidden):
+        super(model_d, self).__init__()
+        
+        # input: 1x250x250 ---------------> output: hiddenx125x125
+        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+                            padding_mode='circular', bias=True)
+        self.B1 = nn.BatchNorm2d(hidden)
+        # input: hiddenx125x125 ----------> output: hiddenx62x62
+        self.C2 = nn.Conv2d(hidden,   2*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B2 = nn.BatchNorm2d(2*hidden)
+        # input: hiddenx62x62 --------> output: 2*hiddenx31x31
+        self.C3 = nn.Conv2d(2*hidden, 4*hidden, kernel_size=4, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B3 = nn.BatchNorm2d(4*hidden)
+        # input: 2*hiddenx31x31 ----------> output: 2*hiddenx15x15
+        self.C4 = nn.Conv2d(4*hidden, 8*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B4 = nn.BatchNorm2d(8*hidden)
+        # input: 2*hiddenx15x15 ----------> output: 4*hiddenx7x7
+        self.C5 = nn.Conv2d(8*hidden, 16*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B5 = nn.BatchNorm2d(16*hidden)
+        # input: 4*hiddenx7x7 ----------> output: 100x3x3
+        self.C6 = nn.Conv2d(16*hidden, 32*hidden, kernel_size=5, stride=2, padding=1,
+                            padding_mode='circular', bias=True)
+        self.B6 = nn.BatchNorm2d(32*hidden)
+
+        self.FC1  = nn.Linear(32*hidden*3*3, 12)  
 
         self.dropout   = nn.Dropout(p=0.5)
         self.ReLU      = nn.ReLU()
