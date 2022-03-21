@@ -19,8 +19,6 @@ import cv2
 
 import torch.nn as nn
 
-from kymatio import Scattering2D
-
 from sn_camels.scattering.create_filters import *
 from sn_camels.scattering.scattering2d import construct_scattering
 from sn_camels.models.models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
@@ -172,8 +170,11 @@ class sn_ScatteringBase(nn.Module):
                 
         self.filterTracker = {'1':[],'2':[],'3':[], 'scale':[], 'angle': []}
         self.filterGradTracker = {'angle': [],'1':[],'2':[],'3':[]}
+        if self.J==2:
+            self.filters_plots_before = self.getFilterViz()
+        else:
+            print("Filter visualisations only working for J=2")
 
-        self.filters_plots_before = self.getFilterViz()
         self.scatteringTrain = False
 
         if self.monitor_filters == True:

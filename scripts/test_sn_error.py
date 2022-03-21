@@ -20,6 +20,7 @@ epochs=100
 lr=1e-3
 batch_size=64
 project_name="camels_comparison"
+error=False # Predict errors?
 model_type="b" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
@@ -27,13 +28,14 @@ dr         = 0.2    #dropout value for fully connected layers
 hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 6   #number of maps per simulation
+splits     = 1   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "epochs": epochs,
                  "batch size": batch_size,
                  "network": model_type,
                  "dropout": dr,
+                 "error": error,
                  "splits":splits}
 
 ## Initialise wandb
@@ -53,13 +55,7 @@ else:
 
 cudnn.benchmark = True      #May train faster but cost more memory
 
-
-#######################################################################################################
-#######################################################################################################
 ############################## Set up training params #################################################
-#######################################################################################################
-#######################################################################################################
-
 ## camels path
 camels_path=os.environ['CAMELS_PATH']
 
@@ -67,8 +63,6 @@ camels_path=os.environ['CAMELS_PATH']
 fmaps      = ['maps_Mcdm.npy'] #tuple containing the maps with the different fields to consider
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
-seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 1   #number of maps per simulation
 
 # training parameters
 channels        = 1                #we only consider here 1 field
@@ -77,12 +71,15 @@ g               = params           #g will contain the mean of the posterior
 h               = [6+i for i in g] #h will contain the variance of the posterior
 rot_flip_in_mem = False            #whether rotations and flipings are kept in memory. True will make the code faster but consumes more RAM memory.
 
+## Set number of classes for scattering network to output
+if error==True:
+    sn_classes=12
+else:
+    sn_classes=6
+
 # optimizer parameters
 beta1 = 0.5
 beta2 = 0.999
-
-hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
-
 #######################################################################################################
 #######################################################################################################
 
@@ -155,7 +152,7 @@ if model_type=="sn":
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
         architecture="cnn",
-        num_classes=12,
+        num_classes=sn_classes,
         width=5,
         use_cuda=use_cuda
     )
@@ -170,32 +167,10 @@ else:
 model.to(device=device)
 
 # wandb
-wandb.watch(model, log_freq=10)
+wandb.watch(model, log_freq=1)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
-
-print('Computing initial validation loss')
-model.eval()
-valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-min_valid_loss, points = 0.0, 0
-for x, y in valid_loader:
-      with torch.no_grad():
-          bs   = x.shape[0]                #batch size
-          x    = x.to(device=device)       #maps
-          y    = y.to(device=device)[:,g]  #parameters
-          p    = model(x)                  #NN output
-          y_NN = p[:,g]                    #posterior mean
-          e_NN = p[:,h]                    #posterior std
-          loss1 = torch.mean((y_NN - y)**2,                axis=0)
-          loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-          loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-          valid_loss1 += loss1*bs
-          valid_loss2 += loss2*bs
-          points += bs
-min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
-min_valid_loss = torch.mean(min_valid_loss).item()
-print('Initial valid loss = %.3e'%min_valid_loss)
 
 # do a loop over all epochs
 start = time.time()
@@ -223,19 +198,23 @@ for epoch in range(epochs):
         y    = y.to(device)[:,g]  #parameters
         p    = model(x)           #NN output
         y_NN = p[:,g]             #posterior mean
-        e_NN = p[:,h]             #posterior std
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
-        loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-        loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+        if error==True:
+            e_NN = p[:,h]         #posterior std
+            loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+            loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+            train_loss2 += loss2*bs
+        else:
+            loss = torch.mean(torch.log(loss1))
         train_loss1 += loss1*bs
-        train_loss2 += loss2*bs
         points      += bs
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        #if points>18000:  break
-    train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
+    train_loss = torch.log(train_loss1/points) 
+    if error==True:
+        train_loss+=torch.log(train_loss2/points)
     train_loss = torch.mean(train_loss).item()
 
     # do validation: cosmo alone & all params
@@ -249,14 +228,18 @@ for epoch in range(epochs):
             y     = y.to(device)[:,g]  #parameters
             p     = model(x)           #NN output
             y_NN  = p[:,g]             #posterior mean
-            e_NN  = p[:,h]             #posterior std
             loss1 = torch.mean((y_NN - y)**2,                axis=0)
-            loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-            loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+            if error==True:    
+                e_NN  = p[:,h]         #posterior std
+                loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+                valid_loss2 += loss2*bs
             valid_loss1 += loss1*bs
-            valid_loss2 += loss2*bs
             points     += bs
-    valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
+
+    
+    valid_loss = torch.log(valid_loss1/points) 
+    if error==True:
+        valid_loss+=torch.log(valid_loss2/points)
     valid_loss = torch.mean(valid_loss).item()
 
     scheduler.step(valid_loss)
@@ -271,4 +254,4 @@ for epoch in range(epochs):
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
 
-test_model(model,test_loader,device)
+#test_model(model,test_loader,device)
