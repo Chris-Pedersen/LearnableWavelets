@@ -23,7 +23,7 @@ from kymatio import Scattering2D
 sys.path.append(str(Path.cwd()))
 import torch
 
-def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,requires_grad=True,use_cuda=True):
+def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requires_grad=True,use_cuda=True):
     """Creates scattering parameters and replaces then with the specified initialization
 
     Creates the scattering network, adds it to the passed device, and returns it for modification. Next,
@@ -39,15 +39,10 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
     seed -- the seed used for creating randomly initialized filters
     requires_grad -- boolean idicating whether we want to learn params
     """
-    scattering = Scattering2D(J=J, shape=(M, N), frontend='torch',pre_pad=True)
+    scattering = Scattering2D(J=J, shape=(M, N), max_order=max_order, 
+                              frontend='torch',pre_pad=True)
 
     L = scattering.L
-    if second_order:
-        n_coefficients=  L*L*J*(J-1)//2 #+ 1 + L*J  
-    else: 
-        n_coefficients=  L*L*J*(J-1)//2 + 1 + L*J  
-    
-    K = n_coefficients*3
 
     if use_cuda:
         scattering = scattering.cuda()
@@ -74,7 +69,7 @@ def create_scatteringExclusive(J,N,M,second_order,device,initialization,seed=0,r
     
     psi = update_psi(J, psi, wavelets, device) #update psi to reflect the new conv filters
 
-    return scattering, psi, wavelets, params_filters, n_coefficients, grid
+    return scattering, psi, wavelets, params_filters, grid
 
 def update_psi(J, psi, wavelets, device):
     """ Update the psi dictionnary with the new wavelets

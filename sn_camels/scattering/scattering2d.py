@@ -250,6 +250,11 @@ def construct_scattering(input, scattering, psi, learnable, split_filters, subsa
 
     input = input.reshape((-1,) + signal_shape)
 
+    S = scattering2d_learn(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
+                        scattering.L, scattering.phi, psi, scattering.max_order, split_filters, subsample,
+                        scattering.out_type)
+
+    '''
     if learnable:
         S = scattering2d_learn(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
                         scattering.L, scattering.phi, psi, scattering.max_order, split_filters, subsample,
@@ -257,7 +262,7 @@ def construct_scattering(input, scattering, psi, learnable, split_filters, subsa
     else:
         S = scattering2d(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
                         scattering.L, scattering.phi, psi, scattering.max_order, scattering.out_type)
-
+    '''
     if scattering.out_type == 'array':
         scattering_shape = S.shape[-3:]
         S = S.reshape(batch_shape + scattering_shape)

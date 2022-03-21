@@ -89,7 +89,7 @@ class sn_ScatteringBase(nn.Module):
         seed -- the random seed used to initialize the parameters
     """
 
-    def __init__(self, J, N, M, second_order, initialization, seed, 
+    def __init__(self, J, N, M, max_order, initialization, seed, 
                  device, learnable=True, lr_orientation=0.1, lr_scattering=0.1,
                  skip=True, split_filters=False, subsample=1, monitor_filters=True, use_cuda=True,
                  filter_video=False):
@@ -101,7 +101,7 @@ class sn_ScatteringBase(nn.Module):
             J -- scale of scattering (always 2 for now)
             N -- height of the input image
             M -- width of the input image
-            second_order -- 
+            max_order -- 1 or 2, haven't implemented higher order than 2 
             initilization -- the type of init: ['Tight-Frame' or 'Random']
             seed -- the random seed used to initialize the parameters
             device -- the device to place weights on
@@ -120,7 +120,7 @@ class sn_ScatteringBase(nn.Module):
         self.J = J
         self.N = N
         self.M = M
-        self.second_order = second_order
+        self.max_order = max_order
         self.learnable = learnable
         self.use_cuda = use_cuda 
         self.device = device
@@ -130,31 +130,29 @@ class sn_ScatteringBase(nn.Module):
         self.skip = skip
         self.split_filters = split_filters
         self.subsample = subsample
-        if self.learnable:
-            self.M_coefficient = self.M/self.subsample ## Used to match the dimensionality
-            self.N_coefficient = self.N/self.subsample ## of the top layer
-        else:
-            self.M_coefficient = self.M/(2**self.J) ## Keep downsampling in fixed case
-            self.N_coefficient = self.N/(2**self.J) ## for now
+        self.M_coefficient = self.M/self.subsample ## Dimensionality of output
+        self.N_coefficient = self.N/self.subsample ## fields
         self.monitor_filters = monitor_filters
         self.filter_video = filter_video
         self.epoch = 0
 
         ## Check for consistent configuration
-        if self.learnable==False:
-            if self.skip:
-                print("Warning: skip connections not implemented with fixed filters")
+        if self.learnable==False and self.split_filters:
             if self.split_filters:
                 print("Warning: cannot split filters with fixed filters")
 
-        self.scattering, self.psi, self.wavelets, self.params_filters, self.n_coefficients, self.grid = create_scatteringExclusive(
-            J,N,M,second_order, initialization=self.initialization,seed=seed,
+        self.scattering, self.psi, self.wavelets, self.params_filters, self.grid = create_scatteringExclusive(
+            J,N,M,max_order, initialization=self.initialization,seed=seed,
             requires_grad=learnable,use_cuda=self.use_cuda,device=self.device
         )
 
-        ## Determine number of output parameters based on config
-        ## and overwrite n_coefficients
-        if self.learnable:
+        ## Determine number of output fields
+        if self.max_order==1:
+            if self.skip:
+                self.n_coefficients=1+len(self.wavelets)
+            else:
+                self.n_coefficients=len(self.wavelets)
+        if self.max_order==2:
             if self.skip and (self.split_filters==False):
                 ## Include zeroth and first order fields in forward pass output
                 self.n_coefficients=1+len(self.wavelets)+len(self.wavelets)**2
@@ -167,7 +165,7 @@ class sn_ScatteringBase(nn.Module):
             elif self.skip==False and self.split_filters:
                 ## Drop skip connections - take only the second order fields
                 self.n_coefficients=int((len(self.wavelets)/2)**2)
-                
+            
         self.filterTracker = {'1':[],'2':[],'3':[], 'scale':[], 'angle': []}
         self.filterGradTracker = {'angle': [],'1':[],'2':[],'3':[]}
         if self.J==2:
@@ -178,8 +176,8 @@ class sn_ScatteringBase(nn.Module):
         self.scatteringTrain = False
 
         if self.monitor_filters == True:
-            _, self.compared_psi, self.compared_wavelets, self.compared_params, _, _ = create_scatteringExclusive(
-                J,N,M,second_order, initialization='Tight-Frame',seed=seed,
+            _, self.compared_psi, self.compared_wavelets, self.compared_params, _ = create_scatteringExclusive(
+                J,N,M,max_order, initialization='Tight-Frame',seed=seed,
                 requires_grad=False,use_cuda=self.use_cuda,device=self.device
             )
 
