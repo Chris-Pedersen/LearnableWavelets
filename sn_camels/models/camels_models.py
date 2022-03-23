@@ -6,14 +6,17 @@ import numpy as np
 https://camels-multifield-dataset.readthedocs.io/en/latest/inference.html#scripts
 """
 
-
 # This function returns the architecture of the considered model
 def get_architecture(arch, hidden, dr, channels=1):
 
     if   arch=='a':       return model_a(hidden)
+    elif arch=='a_err':   return model_a_err(hidden)
     elif arch=='b':       return model_b(hidden)
+    elif arch=='b_err':   return model_b_err(hidden)
     elif arch=='c':       return model_c(hidden)
+    elif arch=='c_err':   return model_c_err(hidden)
     elif arch=='d':       return model_d(hidden)
+    elif arch=='d_err':   return model_d_err(hidden)
     elif arch=='e':       return model_e(hidden, dr)
     elif arch=='e2':      return model_e2(hidden, dr)
     elif arch=='e3':      return model_e3(hidden, dr, channels)
@@ -99,7 +102,7 @@ class model_a(nn.Module):
 #####################################################################################
 class model_a_err(nn.Module):
     def __init__(self, hidden):
-        super(model_a, self).__init__()
+        super(model_a_err, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
         self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
@@ -219,7 +222,7 @@ class model_b(nn.Module):
 #####################################################################################
 class model_b_err(nn.Module):
     def __init__(self, hidden):
-        super(model_b, self).__init__()
+        super(model_b_err, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
         self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
@@ -339,7 +342,7 @@ class model_c(nn.Module):
 #####################################################################################
 class model_c_err(nn.Module):
     def __init__(self, hidden):
-        super(model_c, self).__init__()
+        super(model_c_err, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
         self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
@@ -459,7 +462,7 @@ class model_d(nn.Module):
 #####################################################################################
 class model_d_err(nn.Module):
     def __init__(self, hidden):
-        super(model_d, self).__init__()
+        super(model_d_err, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
         self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
