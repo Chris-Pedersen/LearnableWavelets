@@ -146,9 +146,10 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="cnn",
+        architecture="linear_layer",
         num_classes=sn_classes,
         width=5,
+        average=True,
         use_cuda=use_cuda
     )
 
@@ -162,7 +163,10 @@ if model_type=="sn":
                          "split_filters":scatteringBase.split_filters,
                          "subsample":scatteringBase.subsample,
                          "scattering_output_dims":scatteringBase.M_coefficient,
-                         "n_coefficients":scatteringBase.n_coefficients})
+                         "n_coefficients":scatteringBase.n_coefficients,
+                         "top_model":top.arch,
+                         "spatial_average":top.average
+                         })
     print("scattering layer + cnn set up")
 else:
     print("setting up model %s" % model_type)
@@ -186,10 +190,6 @@ for epoch in range(epochs):
         xis=wave_params[1].cpu().detach().numpy()
         sigmas=wave_params[2].cpu().detach().numpy()
         slants=wave_params[3].cpu().detach().numpy()
-        for aa in range(len(orientations)):
-            log_dic["orientation_%d" % aa]=orientations[aa]
-            log_dic["xi_%d" % aa]=xis[aa]
-            log_dic["sigma_%d" % aa]=sigmas[aa]
             log_dic["slant_%d" % aa]=slants[aa]
 
     # do training

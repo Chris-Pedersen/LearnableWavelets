@@ -26,6 +26,7 @@ class sn_MLP(nn.Module):
     def __init__(self, num_classes, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
         super(sn_MLP,self).__init__()
         self.num_classes=num_classes
+        self.arch="mlp"
         if use_cuda:
             self.cuda()
 
@@ -62,8 +63,9 @@ class sn_LinearLayer(nn.Module):
     def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8,
                     average=False, use_cuda=True):
         super(sn_LinearLayer,self).__init__()
-        self.n_coefficients = n_coefficients
-        self.num_classes = num_classes
+        self.n_coefficients=n_coefficients
+        self.num_classes=num_classes
+        self.arch="linear_layer"
         self.average=average
         if use_cuda:
             self.cuda()
@@ -141,12 +143,12 @@ class sn_CNN(nn.Module):
         super(sn_CNN, self).__init__()
 
         self.bn0 = nn.BatchNorm2d(in_channels,eps=1e-5,affine=True)
-
-        self.inplanes = 16 * k
-        self.ichannels = 16 * k
-        self.in_channels = in_channels
-        self.num_classes =num_classes
-        in_channels = in_channels
+        self.arch="cnn"
+        self.inplanes=16*k
+        self.ichannels=16*k
+        self.in_channels=in_channels
+        self.num_classes=num_classes
+        in_channels=in_channels
         if standard:
 
             self.init_conv = nn.Sequential(
