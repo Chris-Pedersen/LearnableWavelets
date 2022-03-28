@@ -92,7 +92,7 @@ class sn_ScatteringBase(nn.Module):
     def __init__(self, J, N, M, max_order, initialization, seed, 
                  device, learnable=True, lr_orientation=0.1, lr_scattering=0.1,
                  skip=True, split_filters=False, subsample=1, monitor_filters=True, use_cuda=True,
-                 filter_video=False):
+                 filter_video=False,plot=True):
         """Constructor for the leanable scattering nn.Module
         
         Creates scattering filters and adds them to the nn.parameters if learnable
@@ -168,10 +168,8 @@ class sn_ScatteringBase(nn.Module):
             
         self.filterTracker = {'1':[],'2':[],'3':[], 'scale':[], 'angle': []}
         self.filterGradTracker = {'angle': [],'1':[],'2':[],'3':[]}
-        if self.J==2:
+        if self.J==2 and plot==True:
             self.filters_plots_before = self.getFilterViz()
-        else:
-            print("Filter visualisations only working for J=2")
 
         self.scatteringTrain = False
 

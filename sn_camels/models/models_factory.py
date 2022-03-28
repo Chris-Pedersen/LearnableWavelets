@@ -22,7 +22,7 @@ class InvalidArchitectureError(Exception):
 def baseModelFactory(architecture, J, N, M, max_order, initialization, seed, device, 
                      learnable=True, lr_orientation=0.1, lr_scattering=0.1, skip=True,
                      split_filters=False, subsample=1, filter_video=False,
-                     use_cuda=True):
+                     use_cuda=True,plot=True):
     """Factory for the creation of the first layer of a hybrid model
     
         parameters: 
@@ -62,7 +62,8 @@ def baseModelFactory(architecture, J, N, M, max_order, initialization, seed, dev
             subsample=subsample,
             filter_video=filter_video,
             device=device,
-            use_cuda=use_cuda
+            use_cuda=use_cuda,
+            plot=plot
         )
 
     else:
