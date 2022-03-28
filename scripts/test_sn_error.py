@@ -190,6 +190,10 @@ for epoch in range(epochs):
         xis=wave_params[1].cpu().detach().numpy()
         sigmas=wave_params[2].cpu().detach().numpy()
         slants=wave_params[3].cpu().detach().numpy()
+        for aa in range(len(orientations)):
+            log_dic["orientation_%d" % aa]=orientations[aa]
+            log_dic["xi_%d" % aa]=xis[aa]
+            log_dic["sigma_%d" % aa]=sigmas[aa]
             log_dic["slant_%d" % aa]=slants[aa]
 
     # do training
