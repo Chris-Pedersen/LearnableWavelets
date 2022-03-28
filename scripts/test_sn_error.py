@@ -18,10 +18,10 @@ from sn_camels.utils.test_model import test_model
 
 epochs=100
 lr=1e-3
-batch_size=64
-project_name="camels_comparison"
-error=False # Predict errors?
-model_type="b" ## "sn" or "camels" for now
+batch_size=32
+project_name="linear_layer"
+error=True # Predict errors?
+model_type="sn" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
@@ -127,10 +127,10 @@ if model_type=="sn":
         J=2,
         N=256,
         M=256,
-        second_order=True,
+        max_order=2,
         initialization="Tight-Frame",
         seed=123,
-        learnable=False,
+        learnable=True,
         lr_orientation=0.005,
         lr_scattering=0.005,
         skip=False,
@@ -140,12 +140,7 @@ if model_type=="sn":
         device=device,
         use_cuda=use_cuda
     )
-    wandb.config.update({"learnable":scatteringBase.learnable,
-                         "skip":scatteringBase.skip,
-                         "split_filters":scatteringBase.split_filters,
-                         "subsample":scatteringBase.subsample,
-                         "scattering_output_dims":scatteringBase.M_coefficient,
-                         "n_coefficients":scatteringBase.n_coefficients})
+
     ## Now create a network to follow the scattering layers
     ## can be MLP, linear, or cnn at the moment
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
@@ -160,10 +155,19 @@ if model_type=="sn":
     ## Merge these into a hybrid model
     hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
     model=hybridModel
+    wandb.config.update({"learnable":scatteringBase.learnable,
+                         "learnable_parameters":model.countLearnableParams(),
+                         "max_order":scatteringBase.max_order,
+                         "skip":scatteringBase.skip,
+                         "split_filters":scatteringBase.split_filters,
+                         "subsample":scatteringBase.subsample,
+                         "scattering_output_dims":scatteringBase.M_coefficient,
+                         "n_coefficients":scatteringBase.n_coefficients})
     print("scattering layer + cnn set up")
 else:
     print("setting up model %s" % model_type)
     model = get_architecture(model_type,hidden,dr,channels)
+    wandb.config.update({"learnable_parameters":sum(p.numel() for p in model.parameters())})
 model.to(device=device)
 
 # wandb
