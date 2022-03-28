@@ -19,8 +19,8 @@ from sn_camels.utils.test_model import test_model
 epochs=100
 lr=1e-3
 batch_size=64
-project_name="camels_comparison"
-model_type="b" ## "sn" or "camels" for now
+project_name="scattering_linear"
+model_type="sn" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
@@ -130,7 +130,7 @@ if model_type=="sn":
         J=2,
         N=256,
         M=256,
-        second_order=True,
+        max_order=2,
         initialization="Tight-Frame",
         seed=123,
         learnable=False,

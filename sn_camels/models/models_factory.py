@@ -19,7 +19,7 @@ class InvalidArchitectureError(Exception):
     pass
 
 
-def baseModelFactory(architecture, J, N, M, second_order, initialization, seed, device, 
+def baseModelFactory(architecture, J, N, M, max_order, initialization, seed, device, 
                      learnable=True, lr_orientation=0.1, lr_scattering=0.1, skip=True,
                      split_filters=False, subsample=1, filter_video=False,
                      use_cuda=True):
@@ -51,7 +51,7 @@ def baseModelFactory(architecture, J, N, M, second_order, initialization, seed, 
             J=J,
             N=N,
             M=M,
-            second_order=second_order,
+            max_order=max_order,
             initialization=initialization,
             seed=seed,
             learnable=learnable,
