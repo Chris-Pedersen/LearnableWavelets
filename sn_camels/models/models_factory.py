@@ -100,7 +100,8 @@ def topModelFactory(base, architecture, num_classes, width=8, average=False, use
     elif architecture.lower() == 'linear_layer':
         return sn_LinearLayer(
             num_classes=num_classes, n_coefficients=base.n_coefficients, 
-            M_coefficient=base.M_coefficient, N_coefficient=base.N_coefficient, 
+            M_coefficient=base.M_coefficient, N_coefficient=base.N_coefficient,
+            average=average, use_cuda=use_cuda
         )
 
     elif architecture.lower() == 'resnet50':

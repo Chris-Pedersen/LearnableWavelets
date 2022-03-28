@@ -15,7 +15,7 @@ Classes:
 """
 
 from torchvision import models
-
+import torch
 import torch.nn as nn
 
 
@@ -59,21 +59,29 @@ class sn_LinearLayer(nn.Module):
     """
     Linear layer fitted for scattering input
     """
-    def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
+    def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8,
+                    average=False, use_cuda=True):
         super(sn_LinearLayer,self).__init__()
         self.n_coefficients = n_coefficients
         self.num_classes = num_classes
+        self.average=average
         if use_cuda:
             self.cuda()
-
-        self.fc1 = nn.Linear(int(M_coefficient*  N_coefficient*n_coefficients), num_classes)
-
-        self.bn0 = nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True)
+        if self.average:
+            M_coefficient=1
+            N_coefficient=1
+            self.fc1 = nn.Linear(n_coefficients, num_classes)
+        else:
+            self.fc1 = nn.Linear(int(M_coefficient*N_coefficient*n_coefficients), num_classes)
+            self.bn0 = nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True)
 
 
     def forward(self, x):
-        x = self.bn0(x)
-        x = x.reshape(x.shape[0], -1)
+        if self.average==False:
+            x = self.bn0(x)
+            x = x.reshape(x.shape[0], -1)
+        else:
+            x=torch.mean(x, (2,3))
         x = self.fc1(x)
         return x
 
