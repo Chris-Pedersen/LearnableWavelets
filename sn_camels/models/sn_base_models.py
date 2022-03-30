@@ -125,6 +125,7 @@ class sn_ScatteringBase(nn.Module):
         self.use_cuda = use_cuda 
         self.device = device
         self.initialization = initialization
+        self.seed=seed
         self.lr_scattering = lr_scattering
         self.lr_orientation = lr_orientation
         self.skip = skip
