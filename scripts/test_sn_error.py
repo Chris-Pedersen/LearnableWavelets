@@ -129,12 +129,12 @@ if model_type=="sn":
         M=256,
         max_order=2,
         initialization="Tight-Frame",
-        seed=123,
-        learnable=True,
+        seed=234,
+        learnable=False,
         lr_orientation=0.005,
         lr_scattering=0.005,
-        skip=False,
-        split_filters=False,
+        skip=True,
+        split_filters=True,
         filter_video=False,
         subsample=4,
         device=device,
@@ -146,9 +146,10 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="cnn",
+        architecture="linear_layer",
         num_classes=sn_classes,
         width=5,
+        average=True,
         use_cuda=use_cuda
     )
 
@@ -156,13 +157,18 @@ if model_type=="sn":
     hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=use_cuda)
     model=hybridModel
     wandb.config.update({"learnable":scatteringBase.learnable,
+                         "initialisation":scatteringBase.initialization,
+                         "wavelet seed":scatteringBase.seed,
                          "learnable_parameters":model.countLearnableParams(),
                          "max_order":scatteringBase.max_order,
                          "skip":scatteringBase.skip,
                          "split_filters":scatteringBase.split_filters,
                          "subsample":scatteringBase.subsample,
                          "scattering_output_dims":scatteringBase.M_coefficient,
-                         "n_coefficients":scatteringBase.n_coefficients})
+                         "n_coefficients":scatteringBase.n_coefficients,
+                         "top_model":top.arch,
+                         "spatial_average":top.average
+                         })
     print("scattering layer + cnn set up")
 else:
     print("setting up model %s" % model_type)
