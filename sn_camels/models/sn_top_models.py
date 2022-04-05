@@ -73,6 +73,7 @@ class sn_LinearLayer(nn.Module):
             M_coefficient=1
             N_coefficient=1
             self.fc1 = nn.Linear(n_coefficients, num_classes)
+            self.bn0 = nn.BatchNorm1d(num_features=n_coefficients)
         else:
             self.fc1 = nn.Linear(int(M_coefficient*N_coefficient*n_coefficients), num_classes)
             self.bn0 = nn.BatchNorm2d(self.n_coefficients,eps=1e-5,affine=True)
@@ -83,7 +84,8 @@ class sn_LinearLayer(nn.Module):
             x = self.bn0(x)
             x = x.reshape(x.shape[0], -1)
         else:
-            x=torch.mean(x, (2,3))
+            x = torch.mean(x, (2,3))
+            x = self.bn0(x)
         x = self.fc1(x)
         return x
 
