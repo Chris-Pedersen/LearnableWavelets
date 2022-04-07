@@ -19,9 +19,9 @@ from sn_camels.utils.test_model import test_model
 epochs=100
 lr=1e-3
 batch_size=32
-project_name="linear_layer"
+project_name="more_debug"
 error=True # Predict errors?
-model_type="sn" ## "sn" or "camels" for now
+model_type="a_err" ## "sn" or "camels" for now
 # hyperparameters
 wd         = 0.0005  #value of weight decay
 dr         = 0.2    #dropout value for fully connected layers
@@ -128,9 +128,9 @@ if model_type=="sn":
         N=256,
         M=256,
         max_order=2,
-        initialization="Tight-Frame",
+        initialization="Random",
         seed=234,
-        learnable=False,
+        learnable=True,
         lr_orientation=0.005,
         lr_scattering=0.005,
         skip=True,
@@ -146,10 +146,10 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="linear_layer",
+        architecture="cnn",
         num_classes=sn_classes,
         width=5,
-        average=True,
+        average=False,
         use_cuda=use_cuda
     )
 

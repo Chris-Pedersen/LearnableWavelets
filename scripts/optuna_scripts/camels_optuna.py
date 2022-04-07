@@ -89,7 +89,7 @@ class Objective(object):
         valid_loader = create_dataset_multifield('valid', self.seed, self.fmaps, self.fparams, self.batch_size, self.splits, self.fmaps_norm, 
                                                 rot_flip_in_mem=self.rot_flip_in_mem,  verbose=True)
 
-        num_train_maps=train_loader.dataset.x.size
+        num_train_maps=len(train_loader.dataset.x)
         wandb.config.update({"no. training maps": num_train_maps})
         print("setting up model %s" % self.arch)
         model = get_architecture(self.arch,self.hidden,dr,channels)
