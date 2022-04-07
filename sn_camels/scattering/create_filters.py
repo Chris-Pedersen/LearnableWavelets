@@ -296,3 +296,114 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
 
 
+### harmonic wavelets
+
+def radial_parts(radii, centers, widths):
+    
+    broadcast = torch.ones_like(centers) * torch.ones_like(widths)
+    
+    centers = broadcast * centers
+    widths = broadcast * widths
+    
+    bshape = broadcast.shape
+    
+    rshape = radii.shape
+    
+    brshape = (1,) * len(bshape) + rshape
+    bbshape = bshape + (1,) * len(rshape)
+    
+    output = torch.exp(-.5 / widths.reshape(bbshape) ** 2 * 
+                       (radii.reshape(brshape) - centers.reshape(bbshape)) ** 2)
+    return output
+
+def circular_harmonic_wavelets(points, ls, centers, widths):
+    
+    lcw_broadcast = torch.ones_like(ls) * torch.ones_like(centers) * torch.ones_like(widths)
+    centers = centers * lcw_broadcast
+    widths = widths * lcw_broadcast
+    ls = ls * lcw_broadcast
+    
+    radii = torch.norm(points, dim=0)
+    angles = torch.atan2(points[1], points[0])
+    
+    radial_part = radial_parts(radii, centers, widths)
+    angular_part = angular_parts(angles, ls)
+    
+    return radial_part * angular_part
+   
+   
+class FixedCenterSeparableCircularHarmonicFilters(torch.nn.Module):
+    def __init__(self, points_or_shape=(256, 256), ls=(0,) * 16, centers=(0.1, 1., 2., 4., 8., 16.), widths=None,
+                    fft=True):
+        super().__init__()
+        self.points_or_shape = points_or_shape
+        self.ls = ls
+        self.centers = centers
+        self.widths = widths
+        self.fft = fft
+        
+        self.build()
+        
+    def build(self):
+        if isinstance(self.points_or_shape, tuple):
+            s1, s2 = self.points_or_shape
+            start_i, start_j = -(s1 // 2), -(s2 // 2)
+            stop_i, stop_j = start_i + s1, start_j + s2
+            points = torch.stack(
+                    torch.meshgrid(torch.arange(start_i, stop_i, 1.),
+                                    torch.arange(start_j, stop_j, 1.),
+                    indexing='ij'),
+                dim=0)
+            shape = self.points_or_shape
+        else:
+            points = self.points_or_shape
+            shape = points[0].shape
+        
+        radii = torch.norm(points, dim=0)
+        centers = torch.as_tensor(self.centers)
+        if self.widths is not None:
+            widths = torch.as_tensor(self.widths)
+        else:
+            widths = centers
+        
+        radial_part = radial_parts(radii, centers, widths)
+        self.register_buffer('radial_part', radial_part)
+        
+        angles = torch.atan2(points[1], points[0])
+        angles[torch.isnan(angles)] = 0.
+        ls = torch.as_tensor(self.ls)
+        angular_part = angular_parts(angles, ls)
+        self.register_buffer('angular_part', angular_part)
+        
+        self.register_parameter('compositions', torch.nn.Parameter(torch.randn(len(ls), len(centers))))
+        
+    def create_filters(self):
+        composed = torch.matmul(self.radial_part.T[..., np.newaxis, :],
+                                self.compositions.T).T[:, 0]
+        with_harmonic = composed * self.angular_part
+        
+        if self.fft:
+            with_harmonic = torch.fft.fft2(torch.fft.ifftshift(with_harmonic, dim=(-2, -1)))
+            
+        if torch.isnan(with_harmonic).any():
+            import pdb
+            pdb.set_trace()
+        return with_harmonic
+
+class HarmonicFilterConvolution(torch.nn.Module):
+    
+    def __init__(self, harmonic_filter_module):        
+        super().__init__()
+        self.harmonic_filter_module = harmonic_filter_module
+        
+    def forward(self, x):
+        filters = self.harmonic_filter_module.create_filters()
+        if not self.harmonic_filter_module.fft:
+            filters = torch.fft.fft2(torch.fft.ifftshift(filters, dim=(-2, -1)))
+        
+        fx = torch.fft.fft2(x)
+        ffx = fx[..., np.newaxis, :, :] * filters
+        iffx = torch.fft.ifft2(ffx)
+        
+        return iffx
+
