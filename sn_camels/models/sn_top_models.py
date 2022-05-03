@@ -26,6 +26,7 @@ class sn_MLP(nn.Module):
     def __init__(self, num_classes, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
         super(sn_MLP,self).__init__()
         self.num_classes=num_classes
+        self.average=False ## Not implemented yet
         self.arch="mlp"
         if use_cuda:
             self.cuda()
@@ -146,6 +147,7 @@ class sn_CNN(nn.Module):
 
         self.bn0 = nn.BatchNorm2d(in_channels,eps=1e-5,affine=True)
         self.arch="cnn"
+        self.average=False
         self.inplanes=16*k
         self.ichannels=16*k
         self.in_channels=in_channels
