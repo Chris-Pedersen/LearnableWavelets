@@ -6,6 +6,7 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import time, sys, os
 import wandb
+import matplotlib.pyplot as plt
 
 # my modules
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
@@ -14,21 +15,21 @@ from sn_camels.camels.camels_dataset import *
 from sn_camels.models.camels_models import get_architecture
 from sn_camels.utils.test_model import test_model
 
-""" Base script to test a scattering network on a CAMELs dataset """
+""" Base script to test either a scattering network, or CAMELs CNN on a CAMELs dataset """
 
-epochs=100
-lr=0.0038
-batch_size=64
+epochs=200
+lr=0.0023818641483582623
+batch_size=128
 project_name="new_metrics_debug"
 error=True # Predict errors?
-model_type="sn" ## "sn" or "camels" for now
+model_type="o3_err" ## "sn" or "camels" for now
 # hyperparameters
-wd         = 0.0000175  #value of weight decay
-dr         = 0.6    #dropout value for fully connected layers
-hidden     = 5      #this determines the number of channels in the CNNs; integer larger than 1
+wd         = 4.46670158326202e-06  #value of weight decay
+dr         = 0.005564125290818997    #dropout value for fully connected layers
+hidden     = 10      #this determines the number of channels in the CNNs; integer larger than 1
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 1   #number of maps per simulation
+splits     = 15   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "epochs": epochs,
@@ -59,45 +60,41 @@ cudnn.benchmark = True      #May train faster but cost more memory
 
 ############################## Set up training params #################################################
 ## camels path
-camels_path=os.environ['CAMELS_PATH']
+camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
+
+## Possible fields
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mcdm.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_MgFe.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mstar.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mtot.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_ne.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_P.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_T.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vcdm.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vgas.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"
 
 # data parameters
-## List of possible fields to use
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_B.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_HI.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Mcdm.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Mgas.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_MgFe.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Mstar.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Mtot.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_ne.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_P.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_T.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Vcdm.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Vgas.npy"
-# "/mnt/home/cpedersen/Data/CAMELS_test/1k_fields/maps_Z.npy"
-
-# data parameters
-fmaps      = ["/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_HI.npy",
-              '/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Mcdm.npy',
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
-              '/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Mtot.npy',
-             "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Vcdm.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/Data/CAMELS_test/15k_fields/maps_Z.npy"        
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"        
              ] #tuple containing the maps with the different fields to consider
-fmaps      = ['maps_Mcdm.npy'] #tuple containing the maps with the different fields to consider
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 
 # training parameters
-channels        = len(fmaps)       #we only consider here 1 field
+channels        = len(fmaps)                #we only consider here 1 field
 params          = [0,1,2,3,4,5]    #0(Omega_m) 1(sigma_8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2). The code will be trained to predict all these parameters.
 g               = params           #g will contain the mean of the posterior
 h               = [6+i for i in g] #h will contain the variance of the posterior
@@ -132,7 +129,7 @@ test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size
 
 num_train_maps=len(train_loader.dataset.x)
 wandb.config.update({"no. training maps": num_train_maps,
-                     "fields": fmaps}})
+                     "fields": fmaps})
 
 if model_type=="sn":
     ## First create a scattering network object
@@ -160,10 +157,10 @@ if model_type=="sn":
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
-        architecture="linear_layer",
+        architecture="cnn",
         num_classes=sn_classes,
         width=5,
-        average=True,
+        average=False,
         use_cuda=use_cuda
     )
 
@@ -278,7 +275,6 @@ for epoch in range(epochs):
 stop = time.time()
 print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
 
-## Model performance on test set
 ## Model performance metrics on test set
 num_maps=test_loader.dataset.size
 ## Now loop over test set and print accuracy
