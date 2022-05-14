@@ -89,7 +89,7 @@ class sn_ScatteringBase(nn.Module):
         seed -- the random seed used to initialize the parameters
     """
 
-    def __init__(self, J, N, M, max_order, initialization, seed, 
+    def __init__(self, J, N, M, channels, max_order, initialization, seed, 
                  device, learnable=True, lr_orientation=0.1, lr_scattering=0.1,
                  skip=True, split_filters=False, subsample=1, monitor_filters=True, use_cuda=True,
                  filter_video=False,plot=True):
@@ -120,6 +120,7 @@ class sn_ScatteringBase(nn.Module):
         self.J = J
         self.N = N
         self.M = M
+        self.channels = channels
         self.max_order = max_order
         self.learnable = learnable
         self.use_cuda = use_cuda 
@@ -256,7 +257,7 @@ class sn_ScatteringBase(nn.Module):
         x = construct_scattering(ip, self.scattering, self.psi,
                                     self.learnable, self.split_filters,self.subsample)
         x = x[:,:, -self.n_coefficients:,:,:]
-        x = x.reshape(x.size(0), self.n_coefficients, x.size(3), x.size(4))
+        x = x.reshape(x.size(0), self.n_coefficients*self.channels, x.size(3), x.size(4))
         return x
 
     def countLearnableParams(self):
