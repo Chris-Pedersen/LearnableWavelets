@@ -308,7 +308,8 @@ for x, y in test_loader:
         # save results to their corresponding arrays
         params_true[points:points+x.shape[0]] = y.cpu().numpy() 
         params_NN[points:points+x.shape[0]]   = y_NN.cpu().numpy()
-        errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
+        if error==True:
+            errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
         points    += x.shape[0]
 test_loss = torch.log(test_loss1/points) + torch.log(test_loss2/points)
 test_loss = torch.mean(test_loss).item()
@@ -356,9 +357,13 @@ if error:
 f, axarr = plt.subplots(3, 2, figsize=(14,20))
 for aa in range(0,6,2):
     axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
-    axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
     axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
-    axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+    if error==True:
+        axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
+        axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+    else:
+        axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
+        axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
     
 axarr[0][0].set_xlabel(r"True $\Omega_m$")
 axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
