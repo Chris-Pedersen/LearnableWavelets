@@ -18,15 +18,16 @@ from sn_camels.utils.test_model import test_model
 """ Base script to test either a scattering network, or CAMELs CNN on a CAMELs dataset """
 
 epochs=200
-lr=0.0023818641483582623
-batch_size=128
+
+batch_size=32
 project_name="new_metrics_debug"
 error=True # Predict errors?
 model_type="o3_err" ## "sn" or "camels" for now
 # hyperparameters
-wd         = 4.46670158326202e-06  #value of weight decay
-dr         = 0.005564125290818997    #dropout value for fully connected layers
-hidden     = 10      #this determines the number of channels in the CNNs; integer larger than 1
+lr         = 0.0015398962166420919
+wd         = 0.0028321439252305164   #value of weight decay
+dr         = 0.00675389680089114    #dropout value for fully connected layers
+hidden     = 12      #this determines the number of channels in the CNNs; integer larger than 1
 
 seed       = 1   #random seed to split maps among training, validation and testing
 splits     = 15   #number of maps per simulation
@@ -78,18 +79,9 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 # "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"
 
 # data parameters
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"        
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mcdm.npy",       
              ] #tuple containing the maps with the different fields to consider
+#fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mcdm.npy"]
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
 
@@ -138,10 +130,11 @@ if model_type=="sn":
         J=2,
         N=256,
         M=256,
+        channels=channels,
         max_order=2,
-        initialization="Tight-Frame",
+        initialization="Random",
         seed=234,
-        learnable=False,
+        learnable=True,
         lr_orientation=0.005,
         lr_scattering=0.005,
         skip=True,
@@ -151,7 +144,7 @@ if model_type=="sn":
         device=device,
         use_cuda=use_cuda
     )
-
+    print(scatteringBase.wavelets)
     ## Now create a network to follow the scattering layers
     ## can be MLP, linear, or cnn at the moment
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
