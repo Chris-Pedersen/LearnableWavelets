@@ -19,7 +19,7 @@ class InvalidArchitectureError(Exception):
     pass
 
 
-def baseModelFactory(architecture, J, N, M, max_order, initialization, seed, device, 
+def baseModelFactory(architecture, J, N, M, channels, max_order, initialization, seed, device, 
                      learnable=True, lr_orientation=0.1, lr_scattering=0.1, skip=True,
                      split_filters=False, subsample=1, filter_video=False,
                      use_cuda=True,plot=True):
@@ -51,6 +51,7 @@ def baseModelFactory(architecture, J, N, M, max_order, initialization, seed, dev
             J=J,
             N=N,
             M=M,
+            channels=channels,
             max_order=max_order,
             initialization=initialization,
             seed=seed,
@@ -87,19 +88,19 @@ def topModelFactory(base, architecture, num_classes, width=8, average=False, use
 
     if architecture.lower() == 'cnn':
         return sn_CNN(
-            base.n_coefficients, k=width, num_classes=num_classes, standard=False
+            base.n_coefficients*base.channels, k=width, num_classes=num_classes, standard=False
         )
 
     elif architecture.lower() == 'mlp':
         return sn_MLP(
-            num_classes=num_classes, n_coefficients=base.n_coefficients, 
+            num_classes=num_classes, n_coefficients=base.n_coefficients*base.channels, 
             M_coefficient=base.M_coefficient, N_coefficient=base.N_coefficient, 
             use_cuda=use_cuda
         )
 
     elif architecture.lower() == 'linear_layer':
         return sn_LinearLayer(
-            num_classes=num_classes, n_coefficients=base.n_coefficients, 
+            num_classes=num_classes, n_coefficients=base.n_coefficients*base.channels, 
             M_coefficient=base.M_coefficient, N_coefficient=base.N_coefficient,
             average=average, use_cuda=use_cuda
         )

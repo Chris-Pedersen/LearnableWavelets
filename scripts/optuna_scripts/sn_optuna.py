@@ -19,17 +19,17 @@ import wandb
 ## Everything done within an Objective class now for optuna
 class Objective(object):
     def __init__(self, device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
-                      arch, min_lr, beta1, beta2, epochs, monopole,
-                      num_workers, params, rot_flip_in_mem, smoothing):
+                       arch, error, beta1, beta2, epochs, monopole,
+                       num_workers, params, rot_flip_in_mem, smoothing):
         self.device          = device
         self.seed            = seed
-        self.fmaps          = fmaps
-        self.fmaps_norm     = fmaps_norm
-        self.fparams        = fparams
+        self.fmaps           = fmaps
+        self.fmaps_norm      = fmaps_norm
+        self.fparams         = fparams
         self.batch_size      = batch_size
         self.splits          = splits
         self.arch            = arch
-        self.min_lr          = min_lr
+        self.error           = error      ## Estimate error too? In the case of scattering networks
         self.beta1           = beta1
         self.beta2           = beta2
         self.epochs          = epochs
@@ -38,68 +38,75 @@ class Objective(object):
         self.params          = params
         self.rot_flip_in_mem = rot_flip_in_mem
         self.smoothing       = smoothing
-        print("Done init")
-
+        
     def __call__(self,trial):
-        ## number of fields - hardcoded to 1 for now
-        channels  = 1
-
-        # tuple with the indexes of the parameters to train
-        g = self.params      #posterior mean
-        h = [6+i for i in g] #posterior variance
-
+        
         print("Suggesting trial")
         # get the value of the hyperparameters
-        lr = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
-        wd     = trial.suggest_float("wd", 1e-8, 1e-1, log=True)
+        lr     = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
+        lr_sn  = trial.suggest_float("dr", 1e-4, 5e-2, log=True)
+        wd     = trial.suggest_float("wd", 1e-6, 1e-1, log=True)
+        hidden = trial.suggest_int("hidden", 1,  8)
         print("Suggested trial")
-        ## Store hyperparams in a config for wandb
-        config = {"learning rate": lr,
-                 "epochs": self.epochs,
-                 "batch size": self.batch_size,
-                 "network": self.arch,
-                 "weight decay": wd,
-                 "splits":self.splits}
 
         print('\nTrial number: {}'.format(trial.number))
         print('lr: {}'.format(lr))
+        print('lr_sn: {}'.format(lr_sn))
         print('wd: {}'.format(wd))
-
-
-        ## Architecture-specific params
-        if self.arch=="sn":
-            lr_orient = trial.suggest_float("lr_orient",1e-3,1,log=True)
-            lr_scat   = trial.suggest_float("lr_scat",1e-3,1,log=True)
-
-            config["lr_orient"]=lr_orient
-            config["lr_scat"]=lr_scat
-            print('lr_orient: {}'.format(lr_orient))
-            print('lr_scat: {}'.format(lr_scat))
-        else:
-            hidden = trial.suggest_int("hidden", 4, 12)
-            config["hidden"]=hidden
-            print('hidden: {}'.format(hidden))
+        print('hidden: {}'.format(hidden))
+        
+        # training parameters
+        channels        = len(fmaps)                #we only consider here 1 field
+        params          = [0,1,2,3,4,5]    #0(Omega_m) 1(sigma_8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2). The code will be trained to predict all these parameters.
+        g               = params           #g will contain the mean of the posterior
+        h               = [6+i for i in g] #h will contain the variance of the posterior
+        rot_flip_in_mem = False            #whether rotations and flipings are kept in memory. True will make the code faster but consumes more RAM memory.
+        
+        config = {"learning rate": lr,
+                  "scattering learning rate": lr_sn,
+                  "hidden": hidden,
+                  "wd": wd,
+                  "channels": channels,
+                  "epochs": self.epochs,
+                  "batch size": self.batch_size,
+                  "network": self.arch,
+                  "error": self.error,
+                  "splits":self.splits}
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="sn-split-1k", entity="chris-pedersen",config=config)
+        wandb.init(project="sn_cnn_15k", entity="chris-pedersen",config=config)
 
-        ### LOAD DATA
-        ## camels path
-        camels_path=os.environ['CAMELS_PATH']
+        ## Set number of classes for scattering network to output
+        if self.error==True:
+            sn_classes=12
+        else:
+            sn_classes=6
+
+        # optimizer parameters
+        beta1 = 0.5
+        beta2 = 0.999
+        #######################################################################################################
+        #######################################################################################################
 
         # get training set
         print('\nPreparing training set')
-        train_loader = create_dataset_multifield('train', self.seed, self.fmaps, self.fparams, self.batch_size, self.splits, self.fmaps_norm, 
-                                                rot_flip_in_mem=self.rot_flip_in_mem, verbose=True)
+        train_loader = create_dataset_multifield('train', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
+                                                 num_workers=self.num_workers, rot_flip_in_mem=rot_flip_in_mem, verbose=True)
 
         # get validation set
         print('\nPreparing validation set')
-        valid_loader = create_dataset_multifield('valid', self.seed, self.fmaps, self.fparams, self.batch_size, self.splits, self.fmaps_norm, 
-                                                rot_flip_in_mem=self.rot_flip_in_mem,  verbose=True)
+        valid_loader = create_dataset_multifield('valid', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
+                                                 num_workers=self.num_workers, rot_flip_in_mem=rot_flip_in_mem,  verbose=True)    
 
-        num_train_maps=train_loader.dataset.x.size
-        wandb.config.update({"no. training maps": num_train_maps})
+        # get test set
+        print('\nPreparing test set')
+        test_loader = create_dataset_multifield('test', seed, fmaps, fparams, batch_size, splits, fmaps_norm,
+                                                num_workers=self.num_workers, rot_flip_in_mem=rot_flip_in_mem,  verbose=True)
+
+        num_train_maps=len(train_loader.dataset.x)
+        wandb.config.update({"no. training maps": num_train_maps,
+                             "fields": fmaps})
 
         if self.arch=="sn":
             ## First create a scattering network object
@@ -108,81 +115,65 @@ class Objective(object):
                 J=2,
                 N=256,
                 M=256,
-                second_order=True,
+                channels=channels,
+                max_order=2,
                 initialization="Random",
-                seed=123,
-                learnable=True,
-                lr_orientation=lr_orient,
-                lr_scattering=lr_scat,
+                seed=234,
+                learnable=False,
+                lr_orientation=lr_sn,
+                lr_scattering=lr_sn,
                 skip=True,
                 split_filters=True,
-                subsample=4,
                 filter_video=False,
+                subsample=4,
                 device=device,
                 use_cuda=True
             )
 
-            wandb.config.update({"learnable":scatteringBase.learnable,
-                                  "skip":scatteringBase.skip,
-                                  "split_filters":scatteringBase.split_filters,
-                                  "subsample":scatteringBase.subsample,
-                                  "scattering_output_dims":scatteringBase.M_coefficient,
-                                  "n_coefficients":scatteringBase.n_coefficients})
             ## Now create a network to follow the scattering layers
             ## can be MLP, linear, or cnn at the moment
             ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
             top = topModelFactory( #create cnn, mlp, linearlayer, or other
                 base=scatteringBase,
                 architecture="cnn",
-                num_classes=12,
-                width=5,
+                num_classes=sn_classes,
+                width=hidden,
+                average=False,
                 use_cuda=True
             )
-            
 
             ## Merge these into a hybrid model
             hybridModel = sn_HybridModel(scatteringBase=scatteringBase, top=top, use_cuda=True)
             model=hybridModel
+            wandb.config.update({"learnable":scatteringBase.learnable,
+                                 "initialisation":scatteringBase.initialization,
+                                 "wavelet seed":scatteringBase.seed,
+                                 "learnable_parameters":model.countLearnableParams(),
+                                 "max_order":scatteringBase.max_order,
+                                 "skip":scatteringBase.skip,
+                                 "split_filters":scatteringBase.split_filters,
+                                 "subsample":scatteringBase.subsample,
+                                 "scattering_output_dims":scatteringBase.M_coefficient,
+                                 "n_coefficients":scatteringBase.n_coefficients,
+                                 "top_model":top.arch,
+                                 "spatial_average":top.average
+                                 })
             print("scattering layer + cnn set up")
-        elif self.arch=="camels":
-            model = model_o3_err(hidden, dr, channels)
-            print("camels cnn model set up")
         else:
-            print("model type %s not recognised" % self.arch)
+            print("setting up model %s" % self.arch)
+            model = get_architecture(self.arch,hidden,dr,channels)
+            wandb.config.update({"learnable_parameters":sum(p.numel() for p in model.parameters())})
         model.to(device=device)
 
         # wandb
-        wandb.watch(model, log_freq=10)
+        wandb.watch(model, log_freq=1)
 
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
 
-        print('Computing initial validation loss')
-        model.eval()
-        valid_loss1, valid_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
-        min_valid_loss, points = 0.0, 0
-        for x, y in valid_loader:
-            with torch.no_grad():
-                bs   = x.shape[0]                #batch size
-                x    = x.to(device=device)       #maps
-                y    = y.to(device=device)[:,g]  #parameters
-                p    = model(x)                  #NN output
-                y_NN = p[:,g]                    #posterior mean
-                e_NN = p[:,h]                    #posterior std
-                loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-                loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
-                valid_loss1 += loss1*bs
-                valid_loss2 += loss2*bs
-                points += bs
-        min_valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
-        min_valid_loss = torch.mean(min_valid_loss).item()
-        print('Initial valid loss = %.3e'%min_valid_loss)
-
         # do a loop over all epochs
         start = time.time()
         for epoch in range(epochs):
-            # Set up wandb log dictionary
             log_dic={}
             if self.arch=="sn":
                 wave_params=hybridModel.scatteringBase.params_filters
@@ -196,7 +187,7 @@ class Objective(object):
                     log_dic["sigma_%d" % aa]=sigmas[aa]
                     log_dic["slant_%d" % aa]=slants[aa]
 
-            # do training
+            # train
             train_loss1, train_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
             train_loss, points = 0.0, 0
             model.train()
@@ -206,19 +197,23 @@ class Objective(object):
                 y    = y.to(device)[:,g]  #parameters
                 p    = model(x)           #NN output
                 y_NN = p[:,g]             #posterior mean
-                e_NN = p[:,h]             #posterior std
                 loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-                loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+                if self.error==True:
+                    e_NN = p[:,h]         #posterior std
+                    loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+                    loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+                    train_loss2 += loss2*bs
+                else:
+                    loss = torch.mean(torch.log(loss1))
                 train_loss1 += loss1*bs
-                train_loss2 += loss2*bs
                 points      += bs
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-                #if points>18000:  break
-            train_loss = torch.log(train_loss1/points) + torch.log(train_loss2/points)
+            train_loss = torch.log(train_loss1/points) 
+            if self.error==True:
+                train_loss+=torch.log(train_loss2/points)
             train_loss = torch.mean(train_loss).item()
 
             # do validation: cosmo alone & all params
@@ -232,18 +227,21 @@ class Objective(object):
                     y     = y.to(device)[:,g]  #parameters
                     p     = model(x)           #NN output
                     y_NN  = p[:,g]             #posterior mean
-                    e_NN  = p[:,h]             #posterior std
                     loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                    loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
-                    loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
+                    if self.error==True:    
+                        e_NN  = p[:,h]         #posterior std
+                        loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+                        valid_loss2 += loss2*bs
                     valid_loss1 += loss1*bs
-                    valid_loss2 += loss2*bs
                     points     += bs
-            valid_loss = torch.log(valid_loss1/points) + torch.log(valid_loss2/points)
+
+
+            valid_loss = torch.log(valid_loss1/points) 
+            if self.error==True:
+                valid_loss+=torch.log(valid_loss2/points)
             valid_loss = torch.mean(valid_loss).item()
 
             scheduler.step(valid_loss)
-            ## log wandb values
             log_dic["training_loss"]=train_loss
             log_dic["valid_loss"]=valid_loss
             wandb.log(log_dic)
@@ -254,7 +252,127 @@ class Objective(object):
 
         stop = time.time()
         print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
+
+        ## Model performance metrics on test set
+        num_maps=test_loader.dataset.size
+        ## Now loop over test set and print accuracy
+        # define the arrays containing the value of the parameters
+        params_true = np.zeros((num_maps,6), dtype=np.float32)
+        params_NN   = np.zeros((num_maps,6), dtype=np.float32)
+        errors_NN   = np.zeros((num_maps,6), dtype=np.float32)
+
+        # get test loss
+        g = [0, 1, 2, 3, 4, 5]
+        test_loss1, test_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
+        test_loss, points = 0.0, 0
+        model.eval()
+        for x, y in test_loader:
+            with torch.no_grad():
+                bs    = x.shape[0]    #batch size
+                x     = x.to(device)  #send data to device
+                y     = y.to(device)  #send data to device
+                p     = model(x)      #prediction for mean and variance
+                y_NN  = p[:,:6]       #prediction for mean
+                loss1 = torch.mean((y_NN - y)**2,                axis=0)
+                if self.error==True:
+                    e_NN  = p[:,h]         #posterior std
+                    loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
+                    test_loss2 += loss2*bs
+                test_loss1 += loss1*bs
+                test_loss = torch.log(test_loss1/points)
+                if self.error==True:
+                    test_loss+=torch.log(test_loss2/points)
+                test_loss = torch.mean(test_loss).item()
+
+                #e_NN  = p[:,6:]       #prediction for error
+                #loss1 = torch.mean((y_NN[:,g] - y[:,g])**2,                     axis=0)
+                #loss2 = torch.mean(((y_NN[:,g] - y[:,g])**2 - e_NN[:,g]**2)**2, axis=0)
+                #test_loss1 += loss1*bs
+                #test_loss2 += loss2*bs
+
+                # save results to their corresponding arrays
+                params_true[points:points+x.shape[0]] = y.cpu().numpy() 
+                params_NN[points:points+x.shape[0]]   = y_NN.cpu().numpy()
+                errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
+                points    += x.shape[0]
+        test_loss = torch.log(test_loss1/points) + torch.log(test_loss2/points)
+        test_loss = torch.mean(test_loss).item()
+        print('Test loss = %.3e\n'%test_loss)
+
+        # de-normalize
+        ## I guess these are the hardcoded parameter limits
+        minimum = np.array([0.1, 0.6, 0.25, 0.25, 0.5, 0.5])
+        maximum = np.array([0.5, 1.0, 4.00, 4.00, 2.0, 2.0])
+        params_true = params_true*(maximum - minimum) + minimum
+        params_NN   = params_NN*(maximum - minimum) + minimum
+
+
+        test_error = 100*np.mean(np.sqrt((params_true - params_NN)**2)/params_true,axis=0)
+        print('Error Omega_m = %.3f'%test_error[0])
+        print('Error sigma_8 = %.3f'%test_error[1])
+        print('Error A_SN1   = %.3f'%test_error[2])
+        print('Error A_AGN1  = %.3f'%test_error[3])
+        print('Error A_SN2   = %.3f'%test_error[4])
+        print('Error A_AGN2  = %.3f\n'%test_error[5])
+
+        wandb.run.summary["Error Omega_m"]=test_error[0]
+        wandb.run.summary["Error sigma_8"]=test_error[1]
+        wandb.run.summary["Error A_SN1"]  =test_error[2]
+        wandb.run.summary["Error A_AGN1"] =test_error[3]
+        wandb.run.summary["Error A_SN2"]  =test_error[4]
+        wandb.run.summary["Error A_AGN2"] =test_error[5]
+
+        if self.error:
+            errors_NN   = errors_NN*(maximum - minimum)
+            mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
+            print('Bayesian error Omega_m = %.3f'%mean_error[0])
+            print('Bayesian error sigma_8 = %.3f'%mean_error[1])
+            print('Bayesian error A_SN1   = %.3f'%mean_error[2])
+            print('Bayesian error A_AGN1  = %.3f'%mean_error[3])
+            print('Bayesian error A_SN2   = %.3f'%mean_error[4])
+            print('Bayesian error A_AGN2  = %.3f\n'%mean_error[5])
+            wandb.run.summary["Predicted error Omega_m"]=mean_error[0]
+            wandb.run.summary["Predicted error sigma_8"]=mean_error[1]
+            wandb.run.summary["Predicted error A_SN1"]  =mean_error[2]
+            wandb.run.summary["Predicted error A_AGN1"] =mean_error[3]
+            wandb.run.summary["Predicted error A_SN2"]  =mean_error[4]
+            wandb.run.summary["Predicted error A_AGN2"] =mean_error[5]
+
+        f, axarr = plt.subplots(3, 2, figsize=(14,20))
+        for aa in range(0,6,2):
+            axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
+            axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
+            axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
+            axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+
+        axarr[0][0].set_xlabel(r"True $\Omega_m$")
+        axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
+        axarr[0][0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0][0].transAxes)
+
+        axarr[0][1].set_xlabel(r"True $\sigma_8$")
+        axarr[0][1].set_ylabel(r"Predicted $\sigma_8$")
+        axarr[0][1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[0][1].transAxes)
+
+        axarr[1][0].set_xlabel(r"True $A_\mathrm{SN1}$")
+        axarr[1][0].set_ylabel(r"Predicted $A_\mathrm{SN1}$")
+        axarr[1][0].text(0.1,0.9,"%.3f %% error" % test_error[2],fontsize=12,transform=axarr[1][0].transAxes)
+
+        axarr[1][1].set_xlabel(r"True $A_\mathrm{AGN1}$")
+        axarr[1][1].set_ylabel(r"Predicted $A_\mathrm{AGN1}$")
+        axarr[1][1].text(0.1,0.9,"%.3f %% error" % test_error[3],fontsize=12,transform=axarr[1][1].transAxes)
+
+        axarr[2][0].set_xlabel(r"True $A_\mathrm{SN2}$")
+        axarr[2][0].set_ylabel(r"Predicted $A_\mathrm{SN2}$")
+        axarr[2][0].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][0].transAxes)
+
+        axarr[2][1].set_xlabel(r"True $A_\mathrm{AGN2}$")
+        axarr[2][1].set_ylabel(r"Predicted $A_\mathrm{AGN2}$")
+        axarr[2][1].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][1].transAxes)
+
+        figure=wandb.Image(f)
+        wandb.log({"performance": figure})
         wandb.finish()
+
 
         return min_valid_loss
 
@@ -272,55 +390,63 @@ cudnn.benchmark = True      #May train faster but cost more memory
 beta1 = 0.5
 beta2 = 0.999
 
-## My stuff
 ## camels path
-camels_path=os.environ['CAMELS_PATH']
+
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mcdm.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_MgFe.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mstar.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mtot.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_ne.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_P.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_T.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vcdm.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vgas.npy"
+# "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"
+
+camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 fparams    = camels_path+"/params_IllustrisTNG.txt"
-fmaps      = ['maps_Mcdm_sn.npy']
-fmaps_norm = [None]
-splits     = 1
-seed       = 123
-params     = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"              
+             ]
+fmaps      = [
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy"         
+             ]
+fmaps_norm      = [None]
+splits          = 15
+seed            = 123
+params          = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
 rot_flip_in_mem = False  #whether rotations and flipings are kept in memory
-smoothing  = 0  ## Smooth the maps with a Gaussian filter? 0 for no
-arch = "sn" ## Which model architecture to use    
-
-
-fmaps2 = camels_path+"/Maps_Mcdm_IllustrisTNG_LH_z=0.00.npy"
-maps  = np.load(fmaps2)
-print('Shape of the maps:',maps.shape)
-# define the array that will contain the indexes of the maps
-indexes = np.zeros(1000*splits, dtype=np.int32)
-
-# do a loop over all maps and choose the ones we want
-count = 0
-for i in range(15000):
-    if i%15 in np.arange(splits):  
-      indexes[count] = i
-      count += 1
-print('Selected %d maps out of 15000'%count)
-
-# save these maps to a new file
-maps = maps[indexes]
-np.save('maps_Mcdm_sn_learn.npy', maps)
-del maps
+smoothing       = 0  ## Smooth the maps with a Gaussian filter? 0 for no
+arch            = "sn" ## Which model architecture to use
+error           = True
 
 ## training parameters
 batch_size  = 64
-min_lr      = 1e-9
-epochs      = 100
-num_workers = 1    #number of workers to load data
+epochs      = 200
+num_workers = 10    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/sn-split-1k"  # Unique identifier of the study.
+study_name = "optuna/sn-cnn-15k"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
-n_trials=20
+n_trials=30
 
 # train networks with bayesian optimization
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
-                      arch, min_lr, beta1, beta2, epochs, monopole, 
-                    num_workers, params, rot_flip_in_mem, smoothing)
+                      arch, error, beta1, beta2, epochs, monopole, 
+                      num_workers, params, rot_flip_in_mem, smoothing)
 sampler = optuna.samplers.TPESampler(n_startup_trials=20)
 study = optuna.create_study(study_name=study_name, sampler=sampler, storage=storage_name,
                             load_if_exists=True)
