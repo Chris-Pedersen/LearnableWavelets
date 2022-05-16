@@ -119,7 +119,7 @@ class Objective(object):
                 max_order=2,
                 initialization="Random",
                 seed=234,
-                learnable=False,
+                learnable=True,
                 lr_orientation=lr_sn,
                 lr_scattering=lr_sn,
                 skip=True,
@@ -164,7 +164,7 @@ class Objective(object):
             model = get_architecture(self.arch,hidden,dr,channels)
             wandb.config.update({"learnable_parameters":sum(p.numel() for p in model.parameters())})
         model.to(device=device)
-
+        
         # wandb
         wandb.watch(model, log_freq=1)
 
@@ -274,13 +274,13 @@ class Objective(object):
                 p     = model(x)      #prediction for mean and variance
                 y_NN  = p[:,:6]       #prediction for mean
                 loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                if self.error==True:
+                if error==True:
                     e_NN  = p[:,h]         #posterior std
                     loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
                     test_loss2 += loss2*bs
                 test_loss1 += loss1*bs
                 test_loss = torch.log(test_loss1/points)
-                if self.error==True:
+                if error==True:
                     test_loss+=torch.log(test_loss2/points)
                 test_loss = torch.mean(test_loss).item()
 
@@ -293,7 +293,8 @@ class Objective(object):
                 # save results to their corresponding arrays
                 params_true[points:points+x.shape[0]] = y.cpu().numpy() 
                 params_NN[points:points+x.shape[0]]   = y_NN.cpu().numpy()
-                errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
+                if error==True:
+                    errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
                 points    += x.shape[0]
         test_loss = torch.log(test_loss1/points) + torch.log(test_loss2/points)
         test_loss = torch.mean(test_loss).item()
@@ -322,7 +323,7 @@ class Objective(object):
         wandb.run.summary["Error A_SN2"]  =test_error[4]
         wandb.run.summary["Error A_AGN2"] =test_error[5]
 
-        if self.error:
+        if error:
             errors_NN   = errors_NN*(maximum - minimum)
             mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
             print('Bayesian error Omega_m = %.3f'%mean_error[0])
@@ -341,9 +342,13 @@ class Objective(object):
         f, axarr = plt.subplots(3, 2, figsize=(14,20))
         for aa in range(0,6,2):
             axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
-            axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
             axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
-            axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+            if error==True:
+                axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
+                axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+            else:
+                axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
+                axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
 
         axarr[0][0].set_xlabel(r"True $\Omega_m$")
         axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
@@ -372,7 +377,6 @@ class Objective(object):
         figure=wandb.Image(f)
         wandb.log({"performance": figure})
         wandb.finish()
-
 
         return min_valid_loss
 
@@ -420,9 +424,9 @@ fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
               "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
               "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"              
              ]
-fmaps      = [
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy"         
-             ]
+#fmaps      = [
+#              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy"         
+#             ]
 fmaps_norm      = [None]
 splits          = 15
 seed            = 123
@@ -434,7 +438,7 @@ arch            = "sn" ## Which model architecture to use
 error           = True
 
 ## training parameters
-batch_size  = 64
+batch_size  = 32
 epochs      = 200
 num_workers = 10    #number of workers to load data
 
