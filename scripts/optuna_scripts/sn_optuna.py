@@ -75,7 +75,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="sn_cnn_15k", entity="chris-pedersen",config=config)
+        wandb.init(project="sn_cnn_15k_long", entity="chris-pedersen",config=config)
 
         ## Set number of classes for scattering network to output
         if self.error==True:
@@ -443,7 +443,7 @@ epochs      = 200
 num_workers = 10    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/sn-cnn-15k"  # Unique identifier of the study.
+study_name = "optuna/sn-cnn-15k-long"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
 n_trials=30
 
@@ -451,7 +451,7 @@ n_trials=30
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
                       arch, error, beta1, beta2, epochs, monopole, 
                       num_workers, params, rot_flip_in_mem, smoothing)
-sampler = optuna.samplers.TPESampler(n_startup_trials=20)
+sampler = optuna.samplers.TPESampler(n_startup_trials=30)
 study = optuna.create_study(study_name=study_name, sampler=sampler, storage=storage_name,
                             load_if_exists=True)
 study.optimize(objective, n_trials, gc_after_trial=False)
