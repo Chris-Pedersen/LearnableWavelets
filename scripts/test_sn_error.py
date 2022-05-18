@@ -20,8 +20,8 @@ from sn_camels.utils.test_model import test_model
 epochs=150
 
 batch_size=32
-project_name="lin_interp"
-error=False # Predict errors?
+project_name="sn-15k"
+error=True # Predict errors?
 model_type="sn" ## "sn" or "camels" for now
 # hyperparameters
 
@@ -49,7 +49,7 @@ hidden     = 3
 
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 1   #number of maps per simulation
+splits     = 15   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "scattering learning rate": lr_sn,
@@ -98,26 +98,26 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 # "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vgas.npy"
 # "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"
 
-'''
+
 ## "MF" list:
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mstar.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"              
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"              
              ]
-'''
+
 
 
 # data parameters
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mcdm.npy",       
-             ] #tuple containing the maps with the different fields to consider
+#fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mcdm.npy",       
+#             ] #tuple containing the maps with the different fields to consider
 #fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mcdm.npy"]
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
 fparams    = camels_path+"/params_IllustrisTNG.txt"
@@ -181,7 +181,7 @@ if model_type=="sn":
         device=device,
         use_cuda=use_cuda
     )
-    print(scatteringBase.wavelets)
+
     ## Now create a network to follow the scattering layers
     ## can be MLP, linear, or cnn at the moment
     ## (as in https://github.com/bentherien/ParametricScatteringNetworks/ )
