@@ -189,7 +189,7 @@ if model_type=="sn":
         base=scatteringBase,
         architecture="cnn",
         num_classes=sn_classes,
-        width=5,
+        width=hidden,
         average=False,
         use_cuda=use_cuda
     )
