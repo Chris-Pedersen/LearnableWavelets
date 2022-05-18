@@ -41,7 +41,7 @@ hidden     = 12      #this determines the number of channels in the CNNs; intege
 '''
 
 ## SN values
-lr_scat    = 0.00784
+lr_sn      = 0.00784
 lr         = 0.00030
 wd         = 0.000020
 dr         = 0.00675389680089114
@@ -52,6 +52,7 @@ seed       = 1   #random seed to split maps among training, validation and testi
 splits     = 1   #number of maps per simulation
 
 config = {"learning rate": lr,
+                 "scattering learning rate": lr_sn,
                  "epochs": epochs,
                  "batch size": batch_size,
                  "network": model_type,
@@ -171,8 +172,8 @@ if model_type=="sn":
         initialization="Random",
         seed=234,
         learnable=True,
-        lr_orientation=lr_scat,
-        lr_scattering=lr_scat,
+        lr_orientation=lr_sn,
+        lr_scattering=lr_sn,
         skip=True,
         split_filters=True,
         filter_video=False,
