@@ -9,8 +9,8 @@ https://camels-multifield-dataset.readthedocs.io/en/latest/inference.html#script
 # This function returns the architecture of the considered model
 def get_architecture(arch, hidden, dr, channels=1):
 
-    if   arch=='a':       return model_a(hidden)
-    elif arch=='a_err':   return model_a_err(hidden)
+    if   arch=='a':       return model_a(hidden,channels)
+    elif arch=='a_err':   return model_a_err(hidden,channels)
     elif arch=='b':       return model_b(hidden)
     elif arch=='b_err':   return model_b_err(hidden)
     elif arch=='c':       return model_c(hidden)
@@ -42,11 +42,11 @@ def get_architecture(arch, hidden, dr, channels=1):
 #####################################################################################
 #####################################################################################
 class model_a(nn.Module):
-    def __init__(self, hidden):
+    def __init__(self, hidden,channels):
         super(model_a, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
-        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+        self.C1 = nn.Conv2d(channels,         hidden, kernel_size=4, stride=2, padding=1, 
                             bias=True)
         self.B1 = nn.BatchNorm2d(hidden)
         # input: hiddenx125x125 ----------> output: 2*hiddenx62x62
@@ -72,7 +72,6 @@ class model_a(nn.Module):
 
         self.FC1  = nn.Linear(100*3*3, 6)  
 
-        self.dropout   = nn.Dropout(p=0.5)
         self.ReLU      = nn.ReLU()
         self.LeakyReLU = nn.LeakyReLU(0.2)
         self.tanh      = nn.Tanh()
@@ -102,11 +101,11 @@ class model_a(nn.Module):
 #####################################################################################
 #####################################################################################
 class model_a_err(nn.Module):
-    def __init__(self, hidden):
+    def __init__(self, hidden,channels):
         super(model_a_err, self).__init__()
         
         # input: 1x250x250 ---------------> output: hiddenx125x125
-        self.C1 = nn.Conv2d(1,         hidden, kernel_size=4, stride=2, padding=1, 
+        self.C1 = nn.Conv2d(channels,         hidden, kernel_size=4, stride=2, padding=1, 
                             bias=True)
         self.B1 = nn.BatchNorm2d(hidden)
         # input: hiddenx125x125 ----------> output: 2*hiddenx62x62
@@ -132,7 +131,6 @@ class model_a_err(nn.Module):
 
         self.FC1  = nn.Linear(100*3*3, 12)  
 
-        self.dropout   = nn.Dropout(p=0.5)
         self.ReLU      = nn.ReLU()
         self.LeakyReLU = nn.LeakyReLU(0.2)
         self.tanh      = nn.Tanh()
