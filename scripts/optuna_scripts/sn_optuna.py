@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
 from sn_camels.models.sn_hybrid_models import sn_HybridModel
 from sn_camels.models.camels_models import model_o3_err
+from sn_camels.models.camels_models import get_architecture
 from sn_camels.camels.camels_dataset import *
 
 import optuna
@@ -40,11 +41,30 @@ class Objective(object):
         self.smoothing       = smoothing
         
     def __call__(self,trial):
+
+        ## CNN values
+        print("Suggesting trial")
+        # get the value of the hyperparameters
+        lr = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
+        wd     = trial.suggest_float("wd", 1e-8, 1e-1, log=True)
+        #dr     = trial.suggest_float("dr", 0.0,  0.9)
+        hidden = trial.suggest_int("hidden", 3,  10)
+        print("Suggested trial")
+
+        print('\nTrial number: {}'.format(trial.number))
+        print('lr: {}'.format(lr))
+        print('wd: {}'.format(wd))
+        #print('dr: {}'.format(dr))
+        print('hidden: {}'.format(hidden))
+        lr_sn="na"
+        dr="na"
         
+        ''''
+        ## SN values
         print("Suggesting trial")
         # get the value of the hyperparameters
         lr     = trial.suggest_float("lr", 1e-5, 5e-3, log=True)
-        lr_sn  = trial.suggest_float("dr", 1e-4, 5e-2, log=True)
+        lr_sn  = trial.suggest_float("lr_sn", 1e-4, 5e-2, log=True)
         wd     = trial.suggest_float("wd", 1e-6, 1e-1, log=True)
         hidden = trial.suggest_int("hidden", 1,  8)
         print("Suggested trial")
@@ -54,6 +74,8 @@ class Objective(object):
         print('lr_sn: {}'.format(lr_sn))
         print('wd: {}'.format(wd))
         print('hidden: {}'.format(hidden))
+        '''
+
         
         # training parameters
         channels        = len(fmaps)                #we only consider here 1 field
@@ -75,7 +97,7 @@ class Objective(object):
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="sn_cnn_15k_long", entity="chris-pedersen",config=config)
+        wandb.init(project="a_err_10k_long", entity="chris-pedersen",config=config)
 
         ## Set number of classes for scattering network to output
         if self.error==True:
@@ -378,7 +400,7 @@ class Objective(object):
         wandb.log({"performance": figure})
         wandb.finish()
 
-        return min_valid_loss
+        return valid_loss
 
 ##################################### INPUT ##########################################
 # use GPUs if available
@@ -412,46 +434,46 @@ beta2 = 0.999
 
 camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 fparams    = camels_path+"/params_IllustrisTNG.txt"
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"              
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_Mgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_MgFe.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_Mstar.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_Mtot.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_ne.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_P.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_T.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_Vgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/10k_fields/maps_Z.npy"              
              ]
 #fmaps      = [
 #              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy"         
 #             ]
 fmaps_norm      = [None]
-splits          = 15
+splits          = 10
 seed            = 123
 params          = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
 rot_flip_in_mem = False  #whether rotations and flipings are kept in memory
 smoothing       = 0  ## Smooth the maps with a Gaussian filter? 0 for no
-arch            = "sn" ## Which model architecture to use
+arch            = "a_err" ## Which model architecture to use
 error           = True
 
 ## training parameters
 batch_size  = 32
-epochs      = 200
+epochs      = 120
 num_workers = 10    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/sn-cnn-15k-long"  # Unique identifier of the study.
+study_name = "optuna/cnn_a_err-10k-long"  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
-n_trials=30
+n_trials=20
 
 # train networks with bayesian optimization
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
                       arch, error, beta1, beta2, epochs, monopole, 
                       num_workers, params, rot_flip_in_mem, smoothing)
-sampler = optuna.samplers.TPESampler(n_startup_trials=30)
+sampler = optuna.samplers.TPESampler(n_startup_trials=20)
 study = optuna.create_study(study_name=study_name, sampler=sampler, storage=storage_name,
                             load_if_exists=True)
 study.optimize(objective, n_trials, gc_after_trial=False)
