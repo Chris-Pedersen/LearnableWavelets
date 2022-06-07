@@ -19,37 +19,39 @@ from sn_camels.utils.test_model import test_model
 
 epochs=150
 
-batch_size=32
-project_name="sn-15k"
-error=True # Predict errors?
-model_type="sn" ## "sn" or "camels" for now
+batch_size=128
+project_name="new_metrics_debug"
+error=True              ## Predict errors?
+model_type="o3_err"     ## "sn" or "camels" for now
 # hyperparameters
 
-'''
 ## MF values
 dr=0.00556
 lr=0.002381864
 wd=0.0000044667
 hidden=10
-'''
+lr_sn="na"
+
 '''
 ## Mcdm values
 lr         = 0.0015398962166420919
 wd         = 0.0028321439252305164   #value of weight decay
 dr         = 0.00675389680089114    #dropout value for fully connected layers
 hidden     = 12      #this determines the number of channels in the CNNs; integer larger than 1
+lr_sn      = "na"
 '''
-
+'''
 ## SN values
 lr_sn      = 0.00784
 lr         = 0.00030
 wd         = 0.000020
 dr         = 0.00675389680089114
 hidden     = 3
+'''
 
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 15   #number of maps per simulation
+splits     = 5   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "scattering learning rate": lr_sn,
@@ -100,17 +102,17 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 
 
 ## "MF" list:
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mstar.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Z.npy"              
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_MgFe.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mstar.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_ne.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_P.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_T.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Vgas.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Z.npy"              
              ]
 
 
