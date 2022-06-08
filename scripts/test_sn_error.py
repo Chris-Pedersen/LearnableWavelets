@@ -17,12 +17,12 @@ from sn_camels.utils.test_model import test_model
 
 """ Base script to test either a scattering network, or CAMELs CNN on a CAMELs dataset """
 
-epochs=150
+epochs=10
 
-batch_size=128
-project_name="new_metrics_debug"
+batch_size=32
+project_name="drop_feedback"
 features=2 ## 2, 4, 6 or 12
-model_type="o3"     ## "sn" or "camels" for now
+model_type="sn"     ## "sn" or "camels" for now
 # hyperparameters
 
 ## MF values
@@ -54,12 +54,12 @@ seed       = 1   #random seed to split maps among training, validation and testi
 splits     = 5   #number of maps per simulation
 
 config = {"learning rate": lr,
+                 "features":features,
                  "scattering learning rate": lr_sn,
                  "epochs": epochs,
                  "batch size": batch_size,
                  "network": model_type,
                  "dropout": dr,
-                 "error": error,
                  "hidden": hidden,
                  "wd": wd,
                  "splits":splits}
@@ -104,16 +104,15 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 ## "MF" list:
 fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_B.npy",
               "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mstar.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Z.npy"              
-             ]
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mgas.npy"]
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_MgFe.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mstar.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_ne.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_P.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_T.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Vgas.npy",
+              #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Z.npy"]
 
 
 
@@ -228,6 +227,8 @@ model.to(device=device)
 # wandb
 wandb.watch(model, log_freq=1)
 
+print(lr)
+print(wd)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
 
