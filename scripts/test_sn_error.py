@@ -21,8 +21,8 @@ epochs=150
 
 batch_size=128
 project_name="new_metrics_debug"
-error=True              ## Predict errors?
-model_type="o3_err"     ## "sn" or "camels" for now
+features=2 ## 2, 4, 6 or 12
+model_type="o3"     ## "sn" or "camels" for now
 # hyperparameters
 
 ## MF values
@@ -126,16 +126,22 @@ fparams    = camels_path+"/params_IllustrisTNG.txt"
 
 # training parameters
 channels        = len(fmaps)                #we only consider here 1 field
-params          = [0,1,2,3,4,5]    #0(Omega_m) 1(sigma_8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2). The code will be trained to predict all these parameters.
-g               = params           #g will contain the mean of the posterior
-h               = [6+i for i in g] #h will contain the variance of the posterior
-rot_flip_in_mem = False            #whether rotations and flipings are kept in memory. True will make the code faster but consumes more RAM memory.
+## Set up params
+if features==2:
+    g=[0,1]
+if features==4:
+    g=[0,1]
+    h=[2,3]
+elif features==6:
+    g=[0,1,2,3,4,5]
+elif features==12:
+    g=[0,1,2,3,4,5]
+    h=[6,7,8,9,10,11]
 
-## Set number of classes for scattering network to output
-if error==True:
-    sn_classes=12
-else:
-    sn_classes=6
+#params          = [0,1,2,3,4,5]    #0(Omega_m) 1(sigma_8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2). The code will be trained to predict all these parameters.
+#g               = params           #g will contain the mean of the posterior
+#h               = [6+i for i in g] #h will contain the variance of the posterior
+rot_flip_in_mem = False            #whether rotations and flipings are kept in memory. True will make the code faster but consumes more RAM memory.
 
 # optimizer parameters
 beta1 = 0.5
@@ -190,7 +196,7 @@ if model_type=="sn":
     top = topModelFactory( #create cnn, mlp, linearlayer, or other
         base=scatteringBase,
         architecture="cnn",
-        num_classes=sn_classes,
+        num_classes=features,
         width=hidden,
         average=False,
         use_cuda=use_cuda
@@ -252,7 +258,7 @@ for epoch in range(epochs):
         p    = model(x)           #NN output
         y_NN = p[:,g]             #posterior mean
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
-        if error==True:
+        if features==4 or features==12:
             e_NN = p[:,h]         #posterior std
             loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
             loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
@@ -266,7 +272,7 @@ for epoch in range(epochs):
         optimizer.step()
 
     train_loss = torch.log(train_loss1/points) 
-    if error==True:
+    if features==4 or features==12:
         train_loss+=torch.log(train_loss2/points)
     train_loss = torch.mean(train_loss).item()
 
@@ -282,7 +288,7 @@ for epoch in range(epochs):
             p     = model(x)           #NN output
             y_NN  = p[:,g]             #posterior mean
             loss1 = torch.mean((y_NN - y)**2,                axis=0)
-            if error==True:    
+            if features==4 or features==12:   
                 e_NN  = p[:,h]         #posterior std
                 loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
                 valid_loss2 += loss2*bs
@@ -291,7 +297,7 @@ for epoch in range(epochs):
 
     
     valid_loss = torch.log(valid_loss1/points) 
-    if error==True:
+    if features==4 or features==12:
         valid_loss+=torch.log(valid_loss2/points)
     valid_loss = torch.mean(valid_loss).item()
 
@@ -311,12 +317,11 @@ print('Time take (h):', "{:.4f}".format((stop-start)/3600.0))
 num_maps=test_loader.dataset.size
 ## Now loop over test set and print accuracy
 # define the arrays containing the value of the parameters
-params_true = np.zeros((num_maps,6), dtype=np.float32)
-params_NN   = np.zeros((num_maps,6), dtype=np.float32)
-errors_NN   = np.zeros((num_maps,6), dtype=np.float32)
+params_true = np.zeros((num_maps,len(g)), dtype=np.float32)
+params_NN   = np.zeros((num_maps,len(g)), dtype=np.float32)
+errors_NN   = np.zeros((num_maps,len(g)), dtype=np.float32)
 
 # get test loss
-g = [0, 1, 2, 3, 4, 5]
 test_loss1, test_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
 test_loss, points = 0.0, 0
 model.eval()
@@ -326,15 +331,15 @@ for x, y in test_loader:
         x     = x.to(device)  #send data to device
         y     = y.to(device)  #send data to device
         p     = model(x)      #prediction for mean and variance
-        y_NN  = p[:,:6]       #prediction for mean
+        y_NN  = p[:,g]       #prediction for mean
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
-        if error==True:
+        if features==4 or features==12:
             e_NN  = p[:,h]         #posterior std
             loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
             test_loss2 += loss2*bs
         test_loss1 += loss1*bs
         test_loss = torch.log(test_loss1/points)
-        if error==True:
+        if features==4 or features==12:
             test_loss+=torch.log(test_loss2/points)
         test_loss = torch.mean(test_loss).item()
 
@@ -347,7 +352,7 @@ for x, y in test_loader:
         # save results to their corresponding arrays
         params_true[points:points+x.shape[0]] = y.cpu().numpy() 
         params_NN[points:points+x.shape[0]]   = y_NN.cpu().numpy()
-        if error==True:
+        if features==4 or features==12:
             errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
         points    += x.shape[0]
 test_loss = torch.log(test_loss1/points) + torch.log(test_loss2/points)
@@ -358,6 +363,10 @@ print('Test loss = %.3e\n'%test_loss)
 ## I guess these are the hardcoded parameter limits
 minimum = np.array([0.1, 0.6, 0.25, 0.25, 0.5, 0.5])
 maximum = np.array([0.5, 1.0, 4.00, 4.00, 2.0, 2.0])
+
+## Drop feedback parameters if they aren't included
+minimum=minimum[:,g]
+maximum=maximum[:,g]
 params_true = params_true*(maximum - minimum) + minimum
 params_NN   = params_NN*(maximum - minimum) + minimum
 
