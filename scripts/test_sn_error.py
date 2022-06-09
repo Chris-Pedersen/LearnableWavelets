@@ -17,11 +17,11 @@ from sn_camels.utils.test_model import test_model
 
 """ Base script to test either a scattering network, or CAMELs CNN on a CAMELs dataset """
 
-epochs=10
+epochs=3
 
 batch_size=32
 project_name="drop_feedback"
-features=2 ## 2, 4, 6 or 12
+features=6 ## 2, 4, 6 or 12
 model_type="sn"     ## "sn" or "camels" for now
 # hyperparameters
 
@@ -30,7 +30,7 @@ dr=0.00556
 lr=0.002381864
 wd=0.0000044667
 hidden=10
-lr_sn="na"
+lr_sn=0.007
 
 '''
 ## Mcdm values
@@ -51,7 +51,7 @@ hidden     = 3
 
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 5   #number of maps per simulation
+splits     = 1   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "features":features,
@@ -102,9 +102,9 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 
 
 ## "MF" list:
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mgas.npy"]
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy",
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy"]
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_MgFe.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mstar.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy",
@@ -227,8 +227,6 @@ model.to(device=device)
 # wandb
 wandb.watch(model, log_freq=1)
 
-print(lr)
-print(wd)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd, betas=(beta1, beta2))
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.3, patience=10)
 
@@ -328,11 +326,11 @@ test_loss, points = 0.0, 0
 model.eval()
 for x, y in test_loader:
     with torch.no_grad():
-        bs    = x.shape[0]    #batch size
-        x     = x.to(device)  #send data to device
-        y     = y.to(device)  #send data to device
-        p     = model(x)      #prediction for mean and variance
-        y_NN  = p[:,g]       #prediction for mean
+        bs    = x.shape[0]         #batch size
+        x     = x.to(device)       #send data to device
+        y     = y.to(device)[:,g]  #send data to device
+        p     = model(x)           #prediction for mean and variance
+        y_NN  = p[:,g]             #prediction for mean
         loss1 = torch.mean((y_NN - y)**2,                axis=0)
         if features==4 or features==12:
             e_NN  = p[:,h]         #posterior std
@@ -366,8 +364,8 @@ minimum = np.array([0.1, 0.6, 0.25, 0.25, 0.5, 0.5])
 maximum = np.array([0.5, 1.0, 4.00, 4.00, 2.0, 2.0])
 
 ## Drop feedback parameters if they aren't included
-minimum=minimum[:,g]
-maximum=maximum[:,g]
+minimum=minimum[g]
+maximum=maximum[g]
 params_true = params_true*(maximum - minimum) + minimum
 params_NN   = params_NN*(maximum - minimum) + minimum
 
@@ -375,19 +373,32 @@ params_NN   = params_NN*(maximum - minimum) + minimum
 test_error = 100*np.mean(np.sqrt((params_true - params_NN)**2)/params_true,axis=0)
 print('Error Omega_m = %.3f'%test_error[0])
 print('Error sigma_8 = %.3f'%test_error[1])
-print('Error A_SN1   = %.3f'%test_error[2])
-print('Error A_AGN1  = %.3f'%test_error[3])
-print('Error A_SN2   = %.3f'%test_error[4])
-print('Error A_AGN2  = %.3f\n'%test_error[5])
 
 wandb.run.summary["Error Omega_m"]=test_error[0]
 wandb.run.summary["Error sigma_8"]=test_error[1]
-wandb.run.summary["Error A_SN1"]  =test_error[2]
-wandb.run.summary["Error A_AGN1"] =test_error[3]
-wandb.run.summary["Error A_SN2"]  =test_error[4]
-wandb.run.summary["Error A_AGN2"] =test_error[5]
 
-if error:
+if features>4:
+    print('Error A_SN1   = %.3f'%test_error[2])
+    print('Error A_AGN1  = %.3f'%test_error[3])
+    print('Error A_SN2   = %.3f'%test_error[4])
+    print('Error A_AGN2  = %.3f\n'%test_error[5])
+    wandb.run.summary["Error A_SN1"]  =test_error[2]
+    wandb.run.summary["Error A_AGN1"] =test_error[3]
+    wandb.run.summary["Error A_SN2"]  =test_error[4]
+    wandb.run.summary["Error A_AGN2"] =test_error[5]
+
+wandb.run.summary["Error Omega_m"]=test_error[0]
+wandb.run.summary["Error sigma_8"]=test_error[1]
+
+if features==4:
+    errors_NN   = errors_NN*(maximum - minimum)
+    mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
+    print('Bayesian error Omega_m = %.3f'%mean_error[0])
+    print('Bayesian error sigma_8 = %.3f'%mean_error[1])
+    wandb.run.summary["Predicted error Omega_m"]=mean_error[0]
+    wandb.run.summary["Predicted error sigma_8"]=mean_error[1]
+
+elif features==12:
     errors_NN   = errors_NN*(maximum - minimum)
     mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
     print('Bayesian error Omega_m = %.3f'%mean_error[0])
@@ -403,40 +414,62 @@ if error:
     wandb.run.summary["Predicted error A_SN2"]  =mean_error[4]
     wandb.run.summary["Predicted error A_AGN2"] =mean_error[5]
 
-f, axarr = plt.subplots(3, 2, figsize=(14,20))
-for aa in range(0,6,2):
-    axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
-    axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
-    if error==True:
-        axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
-        axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+
+if features<5:
+    f, axarr = plt.subplots(1, 2, figsize=(9,6))
+    axarr[0].plot(np.linspace(min(params_true[:,0]),max(params_true[:,0]),100),np.linspace(min(params_true[:,0]),max(params_true[:,0]),100),color="black")
+    axarr[1].plot(np.linspace(min(params_true[:,1]),max(params_true[:,1]),100),np.linspace(min(params_true[:,1]),max(params_true[:,1]),100),color="black")
+    if features==4:
+        axarr[0].errorbar(params_true[:,0],params_NN[:,0],errors_NN[:,0],marker="o",ls="none")
+        axarr[1].errorbar(params_true[:,1],params_NN[:,1],errors_NN[:,1],marker="o",ls="none")
     else:
-        axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
-        axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
+        axarr[0].plot(params_true[:,0],params_NN[:,0],marker="o",ls="none")
+        axarr[1].plot(params_true[:,1],params_NN[:,1],marker="o",ls="none")
     
-axarr[0][0].set_xlabel(r"True $\Omega_m$")
-axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
-axarr[0][0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0][0].transAxes)
+    axarr[0].set_xlabel(r"True $\Omega_m$")
+    axarr[0].set_ylabel(r"Predicted $\Omega_m$")
+    axarr[0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0].transAxes)
 
-axarr[0][1].set_xlabel(r"True $\sigma_8$")
-axarr[0][1].set_ylabel(r"Predicted $\sigma_8$")
-axarr[0][1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[0][1].transAxes)
+    axarr[1].set_xlabel(r"True $\sigma_8$")
+    axarr[1].set_ylabel(r"Predicted $\sigma_8$")
+    axarr[1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[1].transAxes)
 
-axarr[1][0].set_xlabel(r"True $A_\mathrm{SN1}$")
-axarr[1][0].set_ylabel(r"Predicted $A_\mathrm{SN1}$")
-axarr[1][0].text(0.1,0.9,"%.3f %% error" % test_error[2],fontsize=12,transform=axarr[1][0].transAxes)
 
-axarr[1][1].set_xlabel(r"True $A_\mathrm{AGN1}$")
-axarr[1][1].set_ylabel(r"Predicted $A_\mathrm{AGN1}$")
-axarr[1][1].text(0.1,0.9,"%.3f %% error" % test_error[3],fontsize=12,transform=axarr[1][1].transAxes)
+if features>4:
+    f, axarr = plt.subplots(3, 2, figsize=(14,20))
+    for aa in range(0,6,2):
+        axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
+        axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
+        if features==12:
+            axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
+            axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+        else:
+            axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
+            axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
+    
+    axarr[0][0].set_xlabel(r"True $\Omega_m$")
+    axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
+    axarr[0][0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0][0].transAxes)
 
-axarr[2][0].set_xlabel(r"True $A_\mathrm{SN2}$")
-axarr[2][0].set_ylabel(r"Predicted $A_\mathrm{SN2}$")
-axarr[2][0].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][0].transAxes)
+    axarr[0][1].set_xlabel(r"True $\sigma_8$")
+    axarr[0][1].set_ylabel(r"Predicted $\sigma_8$")
+    axarr[0][1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[0][1].transAxes)
 
-axarr[2][1].set_xlabel(r"True $A_\mathrm{AGN2}$")
-axarr[2][1].set_ylabel(r"Predicted $A_\mathrm{AGN2}$")
-axarr[2][1].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][1].transAxes)
+    axarr[1][0].set_xlabel(r"True $A_\mathrm{SN1}$")
+    axarr[1][0].set_ylabel(r"Predicted $A_\mathrm{SN1}$")
+    axarr[1][0].text(0.1,0.9,"%.3f %% error" % test_error[2],fontsize=12,transform=axarr[1][0].transAxes)
+
+    axarr[1][1].set_xlabel(r"True $A_\mathrm{AGN1}$")
+    axarr[1][1].set_ylabel(r"Predicted $A_\mathrm{AGN1}$")
+    axarr[1][1].text(0.1,0.9,"%.3f %% error" % test_error[3],fontsize=12,transform=axarr[1][1].transAxes)
+
+    axarr[2][0].set_xlabel(r"True $A_\mathrm{SN2}$")
+    axarr[2][0].set_ylabel(r"Predicted $A_\mathrm{SN2}$")
+    axarr[2][0].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][0].transAxes)
+
+    axarr[2][1].set_xlabel(r"True $A_\mathrm{AGN2}$")
+    axarr[2][1].set_ylabel(r"Predicted $A_\mathrm{AGN2}$")
+    axarr[2][1].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][1].transAxes)
 
 figure=wandb.Image(f)
 wandb.log({"performance": figure})
