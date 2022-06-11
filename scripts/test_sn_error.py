@@ -17,11 +17,11 @@ from sn_camels.utils.test_model import test_model
 
 """ Base script to test either a scattering network, or CAMELs CNN on a CAMELs dataset """
 
-epochs=3
+epochs=200
 
 batch_size=32
 project_name="drop_feedback"
-features=6 ## 2, 4, 6 or 12
+features=4 ## 2, 4, 6 or 12
 model_type="sn"     ## "sn" or "camels" for now
 # hyperparameters
 
@@ -51,7 +51,7 @@ hidden     = 3
 
 
 seed       = 1   #random seed to split maps among training, validation and testing
-splits     = 1   #number of maps per simulation
+splits     = 5   #number of maps per simulation
 
 config = {"learning rate": lr,
                  "features":features,
@@ -101,10 +101,11 @@ camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 # "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"
 
 
+'''
 ## "MF" list:
 fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
               "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy"]
+              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_MgFe.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mstar.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy",
@@ -113,11 +114,11 @@ fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_T.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Vgas.npy",
               #"/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Z.npy"]
-
+'''
 
 
 # data parameters
-#fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mcdm.npy",       
+fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/5k_fields/maps_Mtot.npy"] 
 #             ] #tuple containing the maps with the different fields to consider
 #fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mcdm.npy"]
 fmaps_norm = [None] #if you want to normalize the maps according to the properties of some data set, put that data set here (This is mostly used when training on IllustrisTNG and testing on SIMBA, or vicerversa)
