@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 # my modules
 from sn_camels.models.models_factory import baseModelFactory, topModelFactory
 from sn_camels.models.sn_hybrid_models import sn_HybridModel
-from sn_camels.models.camels_models import model_o3_err
 from sn_camels.models.camels_models import get_architecture
 from sn_camels.camels.camels_dataset import *
 
@@ -20,8 +19,8 @@ import wandb
 ## Everything done within an Objective class now for optuna
 class Objective(object):
     def __init__(self, device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
-                       arch, error, beta1, beta2, epochs, monopole,
-                       num_workers, params, rot_flip_in_mem, smoothing):
+                       arch, features, beta1, beta2, epochs, monopole,
+                       num_workers, rot_flip_in_mem, smoothing, name):
         self.device          = device
         self.seed            = seed
         self.fmaps           = fmaps
@@ -30,15 +29,15 @@ class Objective(object):
         self.batch_size      = batch_size
         self.splits          = splits
         self.arch            = arch
-        self.error           = error      ## Estimate error too? In the case of scattering networks
+        self.features        = features
         self.beta1           = beta1
         self.beta2           = beta2
         self.epochs          = epochs
         self.monopole        = monopole
         self.num_workers     = num_workers
-        self.params          = params
         self.rot_flip_in_mem = rot_flip_in_mem
         self.smoothing       = smoothing
+        self.name            = name
         
     def __call__(self,trial):
 
@@ -78,10 +77,19 @@ class Objective(object):
 
         
         # training parameters
-        channels        = len(fmaps)                #we only consider here 1 field
-        params          = [0,1,2,3,4,5]    #0(Omega_m) 1(sigma_8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2). The code will be trained to predict all these parameters.
-        g               = params           #g will contain the mean of the posterior
-        h               = [6+i for i in g] #h will contain the variance of the posterior
+        channels        = len(fmaps)
+        ## Set up params
+        if self.features==2:
+            g=[0,1]
+        if self.features==4:
+            g=[0,1]
+            h=[2,3]
+        elif self.features==6:
+            g=[0,1,2,3,4,5]
+        elif self.features==12:
+            g=[0,1,2,3,4,5]
+            h=[6,7,8,9,10,11]
+
         rot_flip_in_mem = False            #whether rotations and flipings are kept in memory. True will make the code faster but consumes more RAM memory.
         
         config = {"learning rate": lr,
@@ -92,18 +100,14 @@ class Objective(object):
                   "epochs": self.epochs,
                   "batch size": self.batch_size,
                   "network": self.arch,
-                  "error": self.error,
+                  "features": self.features,
                   "splits":self.splits}
 
         ## Initialise wandb
         wandb.login()
-        wandb.init(project="e2_err_1k_long", entity="chris-pedersen",config=config)
+        wandb.init(project="%s" % self.name, entity="chris-pedersen",config=config)
 
         ## Set number of classes for scattering network to output
-        if self.error==True:
-            sn_classes=12
-        else:
-            sn_classes=6
 
         # optimizer parameters
         beta1 = 0.5
@@ -158,7 +162,7 @@ class Objective(object):
             top = topModelFactory( #create cnn, mlp, linearlayer, or other
                 base=scatteringBase,
                 architecture="cnn",
-                num_classes=sn_classes,
+                num_classes=features,
                 width=hidden,
                 average=False,
                 use_cuda=True
@@ -183,7 +187,7 @@ class Objective(object):
             print("scattering layer + cnn set up")
         else:
             print("setting up model %s" % self.arch)
-            model = get_architecture(self.arch,hidden,dr,channels)
+            model = get_architecture(self.arch,self.features,hidden,dr,channels)
             wandb.config.update({"learnable_parameters":sum(p.numel() for p in model.parameters())})
         model.to(device=device)
         
@@ -220,7 +224,7 @@ class Objective(object):
                 p    = model(x)           #NN output
                 y_NN = p[:,g]             #posterior mean
                 loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                if self.error==True:
+                if self.features==4 or self.features==12:
                     e_NN = p[:,h]         #posterior std
                     loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
                     loss  = torch.mean(torch.log(loss1) + torch.log(loss2))
@@ -234,7 +238,7 @@ class Objective(object):
                 optimizer.step()
 
             train_loss = torch.log(train_loss1/points) 
-            if self.error==True:
+            if self.features==4 or self.features==12:
                 train_loss+=torch.log(train_loss2/points)
             train_loss = torch.mean(train_loss).item()
 
@@ -250,7 +254,7 @@ class Objective(object):
                     p     = model(x)           #NN output
                     y_NN  = p[:,g]             #posterior mean
                     loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                    if self.error==True:    
+                    if self.features==4 or self.features==12:    
                         e_NN  = p[:,h]         #posterior std
                         loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
                         valid_loss2 += loss2*bs
@@ -259,7 +263,7 @@ class Objective(object):
 
 
             valid_loss = torch.log(valid_loss1/points) 
-            if self.error==True:
+            if self.features==4 or self.features==12:
                 valid_loss+=torch.log(valid_loss2/points)
             valid_loss = torch.mean(valid_loss).item()
 
@@ -279,73 +283,89 @@ class Objective(object):
         num_maps=test_loader.dataset.size
         ## Now loop over test set and print accuracy
         # define the arrays containing the value of the parameters
-        params_true = np.zeros((num_maps,6), dtype=np.float32)
-        params_NN   = np.zeros((num_maps,6), dtype=np.float32)
-        errors_NN   = np.zeros((num_maps,6), dtype=np.float32)
-
+        params_true = np.zeros((num_maps,len(g)), dtype=np.float32)
+        params_NN   = np.zeros((num_maps,len(g)), dtype=np.float32)
+        errors_NN   = np.zeros((num_maps,len(g)), dtype=np.float32)
+        
         # get test loss
-        g = [0, 1, 2, 3, 4, 5]
         test_loss1, test_loss2 = torch.zeros(len(g)).to(device), torch.zeros(len(g)).to(device)
         test_loss, points = 0.0, 0
         model.eval()
         for x, y in test_loader:
             with torch.no_grad():
-                bs    = x.shape[0]    #batch size
-                x     = x.to(device)  #send data to device
-                y     = y.to(device)  #send data to device
-                p     = model(x)      #prediction for mean and variance
-                y_NN  = p[:,:6]       #prediction for mean
+                bs    = x.shape[0]         #batch size
+                x     = x.to(device)       #send data to device
+                y     = y.to(device)[:,g]  #send data to device
+                p     = model(x)           #prediction for mean and variance
+                y_NN  = p[:,g]             #prediction for mean
                 loss1 = torch.mean((y_NN - y)**2,                axis=0)
-                if error==True:
+                if self.features==4 or self.features==12:
                     e_NN  = p[:,h]         #posterior std
                     loss2 = torch.mean(((y_NN - y)**2 - e_NN**2)**2, axis=0)
                     test_loss2 += loss2*bs
                 test_loss1 += loss1*bs
                 test_loss = torch.log(test_loss1/points)
-                if error==True:
+                if self.features==4 or self.features==12:
                     test_loss+=torch.log(test_loss2/points)
                 test_loss = torch.mean(test_loss).item()
 
-                #e_NN  = p[:,6:]       #prediction for error
-                #loss1 = torch.mean((y_NN[:,g] - y[:,g])**2,                     axis=0)
-                #loss2 = torch.mean(((y_NN[:,g] - y[:,g])**2 - e_NN[:,g]**2)**2, axis=0)
-                #test_loss1 += loss1*bs
-                #test_loss2 += loss2*bs
+        #e_NN  = p[:,6:]       #prediction for error
+        #loss1 = torch.mean((y_NN[:,g] - y[:,g])**2,                     axis=0)
+        #loss2 = torch.mean(((y_NN[:,g] - y[:,g])**2 - e_NN[:,g]**2)**2, axis=0)
+        #test_loss1 += loss1*bs
+        #test_loss2 += loss2*bs
 
                 # save results to their corresponding arrays
                 params_true[points:points+x.shape[0]] = y.cpu().numpy() 
                 params_NN[points:points+x.shape[0]]   = y_NN.cpu().numpy()
-                if error==True:
+                if self.features==4 or self.features==12:
                     errors_NN[points:points+x.shape[0]]   = e_NN.cpu().numpy()
                 points    += x.shape[0]
         test_loss = torch.log(test_loss1/points) + torch.log(test_loss2/points)
         test_loss = torch.mean(test_loss).item()
         print('Test loss = %.3e\n'%test_loss)
-
+        
         # de-normalize
         ## I guess these are the hardcoded parameter limits
         minimum = np.array([0.1, 0.6, 0.25, 0.25, 0.5, 0.5])
         maximum = np.array([0.5, 1.0, 4.00, 4.00, 2.0, 2.0])
+        
+        ## Drop feedback parameters if they aren't included
+        minimum=minimum[g]
+        maximum=maximum[g]
         params_true = params_true*(maximum - minimum) + minimum
         params_NN   = params_NN*(maximum - minimum) + minimum
-
-
+        
+        
         test_error = 100*np.mean(np.sqrt((params_true - params_NN)**2)/params_true,axis=0)
         print('Error Omega_m = %.3f'%test_error[0])
         print('Error sigma_8 = %.3f'%test_error[1])
-        print('Error A_SN1   = %.3f'%test_error[2])
-        print('Error A_AGN1  = %.3f'%test_error[3])
-        print('Error A_SN2   = %.3f'%test_error[4])
-        print('Error A_AGN2  = %.3f\n'%test_error[5])
 
         wandb.run.summary["Error Omega_m"]=test_error[0]
         wandb.run.summary["Error sigma_8"]=test_error[1]
-        wandb.run.summary["Error A_SN1"]  =test_error[2]
-        wandb.run.summary["Error A_AGN1"] =test_error[3]
-        wandb.run.summary["Error A_SN2"]  =test_error[4]
-        wandb.run.summary["Error A_AGN2"] =test_error[5]
-
-        if error:
+        
+        if self.features>4:
+            print('Error A_SN1   = %.3f'%test_error[2])
+            print('Error A_AGN1  = %.3f'%test_error[3])
+            print('Error A_SN2   = %.3f'%test_error[4])
+            print('Error A_AGN2  = %.3f\n'%test_error[5])
+            wandb.run.summary["Error A_SN1"]  =test_error[2]
+            wandb.run.summary["Error A_AGN1"] =test_error[3]
+            wandb.run.summary["Error A_SN2"]  =test_error[4]
+            wandb.run.summary["Error A_AGN2"] =test_error[5]
+        
+        wandb.run.summary["Error Omega_m"]=test_error[0]
+        wandb.run.summary["Error sigma_8"]=test_error[1]
+        
+        if self.features==4:
+            errors_NN   = errors_NN*(maximum - minimum)
+            mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
+            print('Bayesian error Omega_m = %.3f'%mean_error[0])
+            print('Bayesian error sigma_8 = %.3f'%mean_error[1])
+            wandb.run.summary["Predicted error Omega_m"]=mean_error[0]
+            wandb.run.summary["Predicted error sigma_8"]=mean_error[1]
+        
+        elif self.features==12:
             errors_NN   = errors_NN*(maximum - minimum)
             mean_error = 100*(np.absolute(np.mean(errors_NN/params_NN, axis=0)))
             print('Bayesian error Omega_m = %.3f'%mean_error[0])
@@ -360,41 +380,63 @@ class Objective(object):
             wandb.run.summary["Predicted error A_AGN1"] =mean_error[3]
             wandb.run.summary["Predicted error A_SN2"]  =mean_error[4]
             wandb.run.summary["Predicted error A_AGN2"] =mean_error[5]
-
-        f, axarr = plt.subplots(3, 2, figsize=(14,20))
-        for aa in range(0,6,2):
-            axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
-            axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
-            if error==True:
-                axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
-                axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+        
+        
+        if self.features<5:
+            f, axarr = plt.subplots(1, 2, figsize=(9,6))
+            axarr[0].plot(np.linspace(min(params_true[:,0]),max(params_true[:,0]),100),np.linspace(min(params_true[:,0]),max(params_true[:,0]),100),color="black")
+            axarr[1].plot(np.linspace(min(params_true[:,1]),max(params_true[:,1]),100),np.linspace(min(params_true[:,1]),max(params_true[:,1]),100),color="black")
+            if self.features==4:
+                axarr[0].errorbar(params_true[:,0],params_NN[:,0],errors_NN[:,0],marker="o",ls="none")
+                axarr[1].errorbar(params_true[:,1],params_NN[:,1],errors_NN[:,1],marker="o",ls="none")
             else:
-                axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
-                axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
+                axarr[0].plot(params_true[:,0],params_NN[:,0],marker="o",ls="none")
+                axarr[1].plot(params_true[:,1],params_NN[:,1],marker="o",ls="none")
+                
+            axarr[0].set_xlabel(r"True $\Omega_m$")
+            axarr[0].set_ylabel(r"Predicted $\Omega_m$")
+            axarr[0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0].transAxes)
 
-        axarr[0][0].set_xlabel(r"True $\Omega_m$")
-        axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
-        axarr[0][0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0][0].transAxes)
+            axarr[1].set_xlabel(r"True $\sigma_8$")
+            axarr[1].set_ylabel(r"Predicted $\sigma_8$")
+            axarr[1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[1].transAxes)
 
-        axarr[0][1].set_xlabel(r"True $\sigma_8$")
-        axarr[0][1].set_ylabel(r"Predicted $\sigma_8$")
-        axarr[0][1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[0][1].transAxes)
 
-        axarr[1][0].set_xlabel(r"True $A_\mathrm{SN1}$")
-        axarr[1][0].set_ylabel(r"Predicted $A_\mathrm{SN1}$")
-        axarr[1][0].text(0.1,0.9,"%.3f %% error" % test_error[2],fontsize=12,transform=axarr[1][0].transAxes)
+        if self.features>4:
+            f, axarr = plt.subplots(3, 2, figsize=(14,20))
+            for aa in range(0,6,2):
+                axarr[aa//2][0].plot(np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),np.linspace(min(params_true[:,aa]),max(params_true[:,aa]),100),color="black")
+                axarr[aa//2][1].plot(np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),np.linspace(min(params_true[:,aa+1]),max(params_true[:,aa+1]),100),color="black")
+                if self.features==12:
+                    axarr[aa//2][0].errorbar(params_true[:,aa],params_NN[:,aa],errors_NN[:,aa],marker="o",ls="none")
+                    axarr[aa//2][1].errorbar(params_true[:,aa+1],params_NN[:,aa+1],errors_NN[:,aa+1],marker="o",ls="none")
+                else:
+                    axarr[aa//2][0].plot(params_true[:,aa],params_NN[:,aa],marker="o",ls="none")
+                    axarr[aa//2][1].plot(params_true[:,aa+1],params_NN[:,aa+1],marker="o",ls="none")
+                    
+            axarr[0][0].set_xlabel(r"True $\Omega_m$")
+            axarr[0][0].set_ylabel(r"Predicted $\Omega_m$")
+            axarr[0][0].text(0.1,0.9,"%.3f %% error" % test_error[0],fontsize=12,transform=axarr[0][0].transAxes)
 
-        axarr[1][1].set_xlabel(r"True $A_\mathrm{AGN1}$")
-        axarr[1][1].set_ylabel(r"Predicted $A_\mathrm{AGN1}$")
-        axarr[1][1].text(0.1,0.9,"%.3f %% error" % test_error[3],fontsize=12,transform=axarr[1][1].transAxes)
+            axarr[0][1].set_xlabel(r"True $\sigma_8$")
+            axarr[0][1].set_ylabel(r"Predicted $\sigma_8$")
+            axarr[0][1].text(0.1,0.9,"%.3f %% error" % test_error[1],fontsize=12,transform=axarr[0][1].transAxes)
 
-        axarr[2][0].set_xlabel(r"True $A_\mathrm{SN2}$")
-        axarr[2][0].set_ylabel(r"Predicted $A_\mathrm{SN2}$")
-        axarr[2][0].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][0].transAxes)
+            axarr[1][0].set_xlabel(r"True $A_\mathrm{SN1}$")
+            axarr[1][0].set_ylabel(r"Predicted $A_\mathrm{SN1}$")
+            axarr[1][0].text(0.1,0.9,"%.3f %% error" % test_error[2],fontsize=12,transform=axarr[1][0].transAxes)
 
-        axarr[2][1].set_xlabel(r"True $A_\mathrm{AGN2}$")
-        axarr[2][1].set_ylabel(r"Predicted $A_\mathrm{AGN2}$")
-        axarr[2][1].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][1].transAxes)
+            axarr[1][1].set_xlabel(r"True $A_\mathrm{AGN1}$")
+            axarr[1][1].set_ylabel(r"Predicted $A_\mathrm{AGN1}$")
+            axarr[1][1].text(0.1,0.9,"%.3f %% error" % test_error[3],fontsize=12,transform=axarr[1][1].transAxes)
+
+            axarr[2][0].set_xlabel(r"True $A_\mathrm{SN2}$")
+            axarr[2][0].set_ylabel(r"Predicted $A_\mathrm{SN2}$")
+            axarr[2][0].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][0].transAxes)
+
+            axarr[2][1].set_xlabel(r"True $A_\mathrm{AGN2}$")
+            axarr[2][1].set_ylabel(r"Predicted $A_\mathrm{AGN2}$")
+            axarr[2][1].text(0.1,0.9,"%.3f %% error" % test_error[4],fontsize=12,transform=axarr[2][1].transAxes)
 
         figure=wandb.Image(f)
         wandb.log({"performance": figure})
@@ -434,17 +476,8 @@ beta2 = 0.999
 
 camels_path="/mnt/ceph/users/camels/PUBLIC_RELEASE/CMD/2D_maps/data/"
 fparams    = camels_path+"/params_IllustrisTNG.txt"
-fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_HI.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_MgFe.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mstar.npy",
+fmaps      = [
               "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Mtot.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_ne.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_P.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_T.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Vgas.npy",
-              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_Z.npy"              
              ]
 #fmaps      = [
 #              "/mnt/home/cpedersen/ceph/Data/CAMELS_test/15k_fields/maps_Mtot.npy"         
@@ -452,27 +485,27 @@ fmaps      = ["/mnt/home/cpedersen/ceph/Data/CAMELS_test/1k_fields/maps_B.npy",
 fmaps_norm      = [None]
 splits          = 1
 seed            = 123
-params          = [0,1,2,3,4,5] #0(Om) 1(s8) 2(A_SN1) 3 (A_AGN1) 4(A_SN2) 5(A_AGN2)
 monopole        = True  #keep the monopole of the maps (True) or remove it (False)
 rot_flip_in_mem = False  #whether rotations and flipings are kept in memory
 smoothing       = 0  ## Smooth the maps with a Gaussian filter? 0 for no
-arch            = "e2_err" ## Which model architecture to use
-error           = True
+arch            = "e2" ## Which model architecture to use
+features        = 12
+name            = "e2_12_features" ## For wandb and optuna
 
 ## training parameters
 batch_size  = 32
-epochs      = 120
+epochs      = 200
 num_workers = 10    #number of workers to load data
 
 ## Optuna params
-study_name = "optuna/e2_err-5k-long"  # Unique identifier of the study.
+study_name = "optuna/%s" % name  # Unique identifier of the study.
 storage_name = "sqlite:///{}.db".format(study_name)
-n_trials=20
+n_trials=25
 
 # train networks with bayesian optimization
 objective = Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
-                      arch, error, beta1, beta2, epochs, monopole, 
-                      num_workers, params, rot_flip_in_mem, smoothing)
+                      arch, features, beta1, beta2, epochs, monopole, 
+                      num_workers, rot_flip_in_mem, smoothing, name)
 sampler = optuna.samplers.TPESampler(n_startup_trials=20)
 study = optuna.create_study(study_name=study_name, sampler=sampler, storage=storage_name,
                             load_if_exists=True)
