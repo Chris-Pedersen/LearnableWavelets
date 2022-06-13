@@ -221,7 +221,7 @@ if model_type=="sn":
     print("scattering layer + cnn set up")
 else:
     print("setting up model %s" % model_type)
-    model = get_architecture(model_type,hidden,dr,channels)
+    model = get_architecture(model_type,features,hidden,dr,channels)
     wandb.config.update({"learnable_parameters":sum(p.numel() for p in model.parameters())})
 model.to(device=device)
 
