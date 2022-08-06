@@ -20,9 +20,9 @@ import cv2
 import torch.nn as nn
 
 from sn_camels.scattering.create_filters import *
-from sn_camels.scattering.scattering2d import construct_scattering
+from sn_camels.scattering import scattering2d
 from sn_camels.models.models_utils import get_filters_visualization, getOneFilter, getAllFilters,compareParams, compareParamsVisualization
-
+from sn_camels.scattering import torch_backend
 
 class InvalidInitializationException(Exception):
     """Error thrown when an invalid initialization scheme is passed"""
@@ -137,6 +137,7 @@ class sn_ScatteringBase(nn.Module):
         self.monitor_filters = monitor_filters
         self.filter_video = filter_video
         self.epoch = 0
+        self.backend = torch_backend.backend
 
         ## Check for consistent configuration
         if self.learnable==False and self.split_filters:
@@ -243,7 +244,7 @@ class sn_ScatteringBase(nn.Module):
                                     self.params_filters[1], self.params_filters[2], 
                                     self.params_filters[3], device=self.device)
                                     
-            self.psi = update_psi(self.scattering.J, self.psi, self.wavelets, self.device) 
+            self.psi = update_psi(self.J, self.psi, self.wavelets, self.device) 
                                 #   self.initialization, 
             self.writeVideoFrame()
         else:
@@ -251,10 +252,23 @@ class sn_ScatteringBase(nn.Module):
 
     def forward(self, ip):
         """ apply the scattering transform to the input image """
+
+        if (ip.shape[-1] != self.N or ip.shape[-2] != scattering.M):
+            raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (scattering.M, scattering.N))
+
+        if not torch.is_tensor(ip):
+            raise TypeError('The input should be a PyTorch Tensor.')
+
+        if len(ip.shape) < 2:
+            raise RuntimeError('Input tensor must have at least two dimensions.')
+
+        if not ip.is_contiguous():
+            raise RuntimeError('Tensor must be contiguous.')
+
         if self.scatteringTrain: #update filters if training
             self.updateFilters()
             
-        x = construct_scattering(ip, self.scattering, self.psi,
+        x = scattering2d.convolve_fields(ip, self.backend, self.J, self.L, self.phi, self.psi,
                                     self.learnable, self.split_filters,self.subsample)
         x = x[:,:, -self.n_coefficients:,:,:]
         x = x.reshape(x.size(0), self.n_coefficients*self.channels, x.size(3), x.size(4))
@@ -276,6 +290,9 @@ class sn_ScatteringBase(nn.Module):
         print("Scattering learnable parameters: {}".format(count))
         return count
 
+
+    ### Everything below is concerned with tracking filter evolution
+    ### and is not integral to the operation of the scattering model
     def writeVideoFrame(self):
         """Writes frames to the appropriate video writer objects"""
         if self.filter_video:
@@ -291,7 +308,6 @@ class sn_ScatteringBase(nn.Module):
 
     def setEpoch(self, epoch):
         self.epoch = epoch
-
 
     def checkParamDistance(self):
         """Method to checking the minimal distance between initialized filters and learned ones
@@ -349,7 +365,6 @@ class sn_ScatteringBase(nn.Module):
         except Exception:
             pass
 
-
     def saveFilterGrads(self,scatteringActive):
         try:
             if scatteringActive:
@@ -364,8 +379,6 @@ class sn_ScatteringBase(nn.Module):
                 self.filterGradTracker['3'].append(torch.zeros(self.params_filters[1].shape[0]))
         except Exception:
             pass
-
-
 
     def plotFilterGrads(self):
         """plots the graph of the filter gradients"""
@@ -391,7 +404,6 @@ class sn_ScatteringBase(nn.Module):
             axarr[int(x/col),x%col].legend()
 
         return f
-
     
     def plotFilterValues(self):
         """plots the graph of the filter values"""
@@ -421,7 +433,6 @@ class sn_ScatteringBase(nn.Module):
 
         return f
         
-
     def plotParameterValues(self):
         size = (10, 10)
         f, axarr = plt.subplots(2, 2, figsize=size) # create plots
@@ -438,8 +449,7 @@ class sn_ScatteringBase(nn.Module):
             axarr[int(idx/2),idx%2].set_title(label[idx], fontsize=16)
             axarr[int(idx/2),idx%2].set_xlabel('Epoch', fontsize=12) # Or ITERATION to be more precise
             axarr[int(idx/2),idx%2].set_ylabel('Value', fontsize=12)
-            
-
+        
         return f
 
 

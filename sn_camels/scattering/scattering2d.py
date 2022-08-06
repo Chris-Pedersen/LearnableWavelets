@@ -4,8 +4,8 @@
 
 import torch
 
-def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
-        split_filters, subsample ,out_type='array'):
+def do_convolutions(x, backend, J, L, phi, psi, max_order,
+        split_filters, subsample):
     """ Function to take an input image and perform a series of scattering
     convolutions."""
     subsample_fourier = backend.subsample_fourier
@@ -128,50 +128,34 @@ def scattering2d_learn(x, pad, unpad, backend, J, L, phi, psi, max_order,
     out_S.extend(out_S_1)
     out_S.extend(out_S_2)
 
-    if out_type == 'array':
-        out_S = concatenate([x['coef'] for x in out_S])
+    out_S = concatenate([x['coef'] for x in out_S])
 
     return out_S
 
-def construct_scattering(input, scattering, psi, learnable, split_filters, subsample):
-    """ Construct the scattering object
+def convolve_fields(input, backend, J, L, phi, psi, max_order, split_filters, subsample):
+    """  
+        Wrapper function for a loop that will convovle each wavelet with the input fields
 
         Parameters:
             input      -- input data
-            scattering -- Kymatio (https://www.kymat.io/) scattering object
             psi        -- dictionnary of filters that is used in the kymatio code
             learnable  -- are we using learnable filters
             split_filters -- split first and second order filters
         Returns:
-            S -- output of the scattering network
+            S -- Fields after being convolved with wavelets
     """
-    if not torch.is_tensor(input):
-        raise TypeError('The input should be a PyTorch Tensor.')
-
-    if len(input.shape) < 2:
-        raise RuntimeError('Input tensor must have at least two dimensions.')
-
-    if not input.is_contiguous():
-        raise RuntimeError('Tensor must be contiguous.')
-
-    if (input.shape[-1] != scattering.N or input.shape[-2] != scattering.M) and not scattering.pre_pad:
-        raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (scattering.M, scattering.N))
-
-    if not scattering.out_type in ('array', 'list'):
-        raise RuntimeError("The out_type must be one of 'array' or 'list'.")
 
     batch_shape = input.shape[:-2]
     signal_shape = input.shape[-2:]
 
     input = input.reshape((-1,) + signal_shape)
 
-    S = scattering2d_learn(input, scattering.pad, scattering.unpad, scattering.backend, scattering.J,
-                        scattering.L, scattering.phi, psi, scattering.max_order, split_filters, subsample,
-                        scattering.out_type)
+    S = do_convolutions(input, backend, J, L, phi, psi,
+                        max_order, split_filters, subsample)
 
-    if scattering.out_type == 'array':
-        scattering_shape = S.shape[-3:]
-        S = S.reshape(batch_shape + scattering_shape)
+    ## S will always be a numpy array
+    scattering_shape = S.shape[-3:]
+    S = S.reshape(batch_shape + scattering_shape)
 
     return S
 

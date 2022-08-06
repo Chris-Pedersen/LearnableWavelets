@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn import ReflectionPad2d ## Eventually want to get rid of this
 
-from sn_camels.scattering.torch_backend import backend
+from sn_camels.scattering import torch_backend
 
 ## Utils imports
 import scipy.fftpack
@@ -268,7 +268,7 @@ class ScatteringBase():
                 try:
                     print(import_string, self.backend , "_backend")
                     #self.backend = importlib.import_module(import_string + self.backend + "_backend", 'backend').backend
-                    self.backend = backend
+                    self.backend = torch_backend.backend
                 except ImportError:
                     raise ImportError('Backend ' + self.backend + ' not found!')
             else:
@@ -420,15 +420,8 @@ class ScatteringTorch2D(ScatteringTorch, ScatteringBase2D):
         S = scattering2d(input, self.pad, self.unpad, self.backend, self.J,
                             self.L, phi, psi, self.max_order, self.out_type)
 
-        if self.out_type == 'array':
-            scattering_shape = S.shape[-3:]
-            S = S.reshape(batch_shape + scattering_shape)
-        else:
-            scattering_shape = S[0]['coef'].shape[-2:]
-            new_shape = batch_shape + scattering_shape
-
-            for x in S:
-                x['coef'] = x['coef'].reshape(new_shape)
+        scattering_shape = S.shape[-3:]
+        S = S.reshape(batch_shape + scattering_shape)
 
         return S
 
