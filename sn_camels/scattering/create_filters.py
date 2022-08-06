@@ -19,7 +19,8 @@ Functions:
 import sys
 from pathlib import Path 
 import numpy as np
-from kymatio import Scattering2D
+#from kymatio import Scattering2D
+from sn_camels.scattering.kymat_code import ScatteringTorch2D
 sys.path.append(str(Path.cwd()))
 import torch
 
@@ -39,8 +40,10 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     seed -- the seed used for creating randomly initialized filters
     requires_grad -- boolean idicating whether we want to learn params
     """
-    scattering = Scattering2D(J=J, shape=(M, N), max_order=max_order, 
-                              frontend='torch',pre_pad=True)
+    #scattering = Scattering2D(J=J, shape=(M, N), max_order=max_order, 
+    #                          frontend='torch',pre_pad=True)
+    scattering = ScatteringTorch2D(J=J, shape=(M, N), max_order=max_order
+                                    ,pre_pad=True)
 
     L = scattering.L
 
