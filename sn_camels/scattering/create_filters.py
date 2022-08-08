@@ -61,27 +61,17 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     requires_grad -- boolean idicating whether we want to learn params
     """
 
-    scattering = kymat_code.ScatteringTorch2D(J=J, shape=(M, N), max_order=max_order
-                                    ,pre_pad=True)
-
-    L = scattering.L
-
-    if use_cuda:
-        scattering = scattering.cuda()
-
-    phi, psi  = scattering.load_filters()
-
     params_filters = []
 
     if initialization == "Tight-Frame":
         params_filters = create_filters_params(J,L,requires_grad,device) #kymatio init
     elif initialization == "Random":
-        num_filters= J*L
+        num_filters= J*8 ## temporarily hardcoded
         params_filters = create_filters_params_random(num_filters,requires_grad,device,seed) #random init
     else:
         raise InvalidInitializationException
 
-    shape = (scattering.M, scattering.N,)
+    shape = (M, N,)
     ranges = [torch.arange(-(s // 2), -(s // 2) + s, device=device, dtype=torch.float) for s in shape]
     grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
     params_filters =  [ param.to(device) for param in params_filters]
