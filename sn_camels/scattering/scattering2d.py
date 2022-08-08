@@ -4,7 +4,7 @@
 
 import torch
 
-def do_convolutions(x, backend, J, L, phi, psi, max_order,
+def do_convolutions(x, backend, J, phi, wavelets, max_order,
         split_filters, subsample):
     """ Function to take an input image and perform a series of scattering
     convolutions."""
@@ -13,6 +13,8 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
     fft = backend.fft
     cdgmm = backend.cdgmm
     concatenate = backend.concatenate
+    
+    wavelets = wavelets.real.contiguous().unsqueeze(3)
 
     # Define lists for output.
     out_S_0, out_S_1, out_S_2 = [], [], []
@@ -30,17 +32,14 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
 
     S_0 = fft(U_1_c, 'C2R', inverse=True)
 
-    out_S_0.append({'coef': S_0,
-                    'j': (),
-                    'theta': ()})
+    out_S_0.append({'coef': S_0})
 
     if split_filters:
-        for n1 in range(int(len(psi)/2)):
-            j1 = psi[n1]['j'] ## don't care about this any more
-            theta1 = psi[n1]['theta']
+        for n1 in range(int(len(wavelets)/2)):
 
             ## Wavelet convolution
-            U_1_c = cdgmm(U_0_c, psi[n1][0])
+            
+            U_1_c = cdgmm(U_0_c, wavelets[n1])
 
             U_1_c = fft(U_1_c, 'C2C', inverse=True)
             U_1_c = modulus(U_1_c)
@@ -52,18 +51,14 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
 
             S_1_r = fft(S_1_c, 'C2R', inverse=True)
 
-            out_S_1.append({'coef': S_1_r,
-                            'j': (j1,),
-                            'theta': (theta1,)})
+            out_S_1.append({'coef': S_1_r})
 
             if max_order < 2:
                 continue
             for n2 in range(int(len(psi)/2),len(psi)):
-                j2 = psi[n2]['j']
-                theta2 = psi[n2]['theta']
                 
 
-                U_2_c = cdgmm(U_1_c, psi[n2][0])
+                U_2_c = cdgmm(U_1_c, wavelets[n2])
                 U_2_c = fft(U_2_c, 'C2C', inverse=True)
                 U_2_c = modulus(U_2_c)
                 U_2_c = fft(U_2_c, 'C2C')
@@ -76,16 +71,11 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
                 S_2_r = fft(S_2_c, 'C2R', inverse=True)
                 
 
-                out_S_2.append({'coef': S_2_r,
-                                'j': (j1, j2),
-                                'theta': (theta1, theta2)})
+                out_S_2.append({'coef': S_2_r})
     else:
-        for n1 in range(len(psi)):
-            j1 = psi[n1]['j'] ## don't care about this any more
-            theta1 = psi[n1]['theta']
-
+        for n1 in range(len(wavelets)):
             ## Wavelet convolution
-            U_1_c = cdgmm(U_0_c, psi[n1][0])
+            U_1_c = cdgmm(U_0_c, wavelets[n1])
 
             U_1_c = fft(U_1_c, 'C2C', inverse=True)
             U_1_c = modulus(U_1_c)
@@ -97,18 +87,13 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
 
             S_1_r = fft(S_1_c, 'C2R', inverse=True)
 
-            out_S_1.append({'coef': S_1_r,
-                            'j': (j1,),
-                            'theta': (theta1,)})
+            out_S_1.append({'coef': S_1_r})
 
             if max_order < 2:
                 continue
-            for n2 in range(len(psi)):
-                j2 = psi[n2]['j']
-                theta2 = psi[n2]['theta']
+            for n2 in range(len(wavelets)):
                 
-
-                U_2_c = cdgmm(U_1_c, psi[n2][0])
+                U_2_c = cdgmm(U_1_c, wavelets[n2])
                 U_2_c = fft(U_2_c, 'C2C', inverse=True)
                 U_2_c = modulus(U_2_c)
                 U_2_c = fft(U_2_c, 'C2C')
@@ -119,9 +104,7 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
                 S_2_r = fft(S_2_c, 'C2R', inverse=True)
                 
 
-                out_S_2.append({'coef': S_2_r,
-                                'j': (j1, j2),
-                                'theta': (theta1, theta2)})
+                out_S_2.append({'coef': S_2_r})
 
     out_S = []
     out_S.extend(out_S_0)
@@ -132,14 +115,14 @@ def do_convolutions(x, backend, J, L, phi, psi, max_order,
 
     return out_S
 
-def convolve_fields(input, backend, J, L, phi, psi, max_order, split_filters, subsample):
+
+def convolve_fields(input, backend, J, L, phi, wavelets, max_order, split_filters, subsample):
     """  
         Wrapper function for a loop that will convovle each wavelet with the input fields
 
         Parameters:
             input      -- input data
             psi        -- dictionnary of filters that is used in the kymatio code
-            learnable  -- are we using learnable filters
             split_filters -- split first and second order filters
         Returns:
             S -- Fields after being convolved with wavelets
@@ -150,7 +133,7 @@ def convolve_fields(input, backend, J, L, phi, psi, max_order, split_filters, su
 
     input = input.reshape((-1,) + signal_shape)
 
-    S = do_convolutions(input, backend, J, L, phi, psi,
+    S = do_convolutions(input, backend, J, L, phi, wavelets,
                         max_order, split_filters, subsample)
 
     ## S will always be a numpy array
