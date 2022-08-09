@@ -214,10 +214,6 @@ class sn_ScatteringBase(nn.Module):
             self.wavelets = morlets(self.grid, self.params_filters[0], 
                                     self.params_filters[1], self.params_filters[2], 
                                     self.params_filters[3], device=self.device)
-                                    
-            #self.psi = create_filters.update_psi(self.J, self.psi, self.wavelets, self.device) 
-                                #   self.initialization, 
-            #self.writeVideoFrame()
         else:
             pass
 
@@ -239,7 +235,7 @@ class sn_ScatteringBase(nn.Module):
         if self.scatteringTrain: #update filters if training
             self.updateFilters()
             
-        x = scattering2d.convolve_fields(ip, self.backend, self.J, self.L, self.phi, self.wavelets,
+        x = scattering2d.convolve_fields(ip, self.backend, self.J, self.phi, self.wavelets,
                                     self.max_order, self.split_filters,self.subsample)
         x = x[:,:, -self.n_coefficients:,:,:]
         x = x.reshape(x.size(0), self.n_coefficients*self.channels, x.size(3), x.size(4))
