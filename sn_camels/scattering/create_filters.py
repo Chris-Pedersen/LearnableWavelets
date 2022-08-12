@@ -229,7 +229,6 @@ def raw_morlets(grid_or_shape, wave_vectors, gaussian_bases, morlet=True, ifftsh
         shape = grid_or_shape.shape[1:]
         grid = grid_or_shape
 
-    print("grid=",grid)
     waves = torch.exp(1.0j * torch.matmul(grid.T, wave_vectors.T).T)
     gaussian_directions = torch.matmul(grid.T, gaussian_bases.T.reshape(n_dim, n_dim * n_filters)).T
     gaussian_directions = gaussian_directions.reshape((n_dim, n_filters) + shape)
