@@ -116,7 +116,7 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
     return out_S
 
 
-def convolve_fields(input, backend, J, L, phi, wavelets, max_order, split_filters, subsample):
+def convolve_fields(input, backend, J, phi, wavelets, max_order, split_filters, subsample):
     """  
         Wrapper function for a loop that will convovle each wavelet with the input fields
 
@@ -133,7 +133,7 @@ def convolve_fields(input, backend, J, L, phi, wavelets, max_order, split_filter
 
     input = input.reshape((-1,) + signal_shape)
 
-    S = do_convolutions(input, backend, J, L, phi, wavelets,
+    S = do_convolutions(input, backend, J, phi, wavelets,
                         max_order, split_filters, subsample)
 
     ## S will always be a numpy array

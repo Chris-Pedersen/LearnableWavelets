@@ -486,6 +486,7 @@ def get_phis(M, N, J):
     phi_signal_fourier = np.real(phi_signal_fourier)
     for res in range(J):
         phi_signal_fourier_res = periodize_filter_fft_kymat(phi_signal_fourier, res)
+        print(phi_signal_fourier_res.shape)
         phis.append(phi_signal_fourier_res)
 
     return phis
