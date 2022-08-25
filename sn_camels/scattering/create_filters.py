@@ -267,7 +267,7 @@ def raw_morlets(grid_or_shape, wave_vectors, gaussian_bases, morlet=True, ifftsh
         Returns:
             filters -- the wavelet filters before normalization
             
-    """
+    """ 
     n_filters, n_dim = wave_vectors.shape
     assert gaussian_bases.shape == (n_filters, n_dim, n_dim)
     device = wave_vectors.device
@@ -393,7 +393,7 @@ def filter_bank(M, N, J, L=8):
             # drop the imaginary part, it is zero anyway
             psi_signal_fourier = np.real(psi_signal_fourier)
             for res in range(min(j + 1, max(J - 1, 1))):
-                psi_signal_fourier_res = create_filters.periodize_filter_fft_kymat(
+                psi_signal_fourier_res = periodize_filter_fft_kymat(
                     psi_signal_fourier, res)
                 psi[res] = psi_signal_fourier_res
             filters['psi'].append(psi)
@@ -467,8 +467,6 @@ def get_phis(M, N, J):
             spatial support of the input
         J : int
             logscale of the scattering
-        L : int, optional
-            number of angles used for the wavelet transform
         Returns
         -------
         filters : list

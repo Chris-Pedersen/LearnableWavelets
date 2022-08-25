@@ -220,8 +220,8 @@ class sn_ScatteringBase(nn.Module):
     def forward(self, ip):
         """ apply the scattering transform to the input image """
 
-        if (ip.shape[-1] != self.N or ip.shape[-2] != scattering.M):
-            raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (scattering.M, scattering.N))
+        if (ip.shape[-1] != self.N or ip.shape[-2] != self.M):
+            raise RuntimeError('Tensor must be of spatial size (%i,%i).' % (self.M, self.N))
 
         if not torch.is_tensor(ip):
             raise TypeError('The input should be a PyTorch Tensor.')
