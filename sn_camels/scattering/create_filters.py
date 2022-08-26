@@ -343,8 +343,11 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
     wavelets = wavelets / norm_factors
 
+    ## Drop imaginary part, is is zero anyway
+    wavelets=wavelets.real
+
     ## Unsqueeze to match dimensions needed by torch backend
-    wavelets=wavelets.unsqueeze(-1)
+    wavelets=wavelets.contiguous().unsqueeze(-1)
 
     return wavelets
 

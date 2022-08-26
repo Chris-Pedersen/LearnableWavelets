@@ -14,7 +14,7 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
     cdgmm = backend.cdgmm
     concatenate = backend.concatenate
     
-    wavelets = wavelets.real.contiguous().unsqueeze(3)
+    #wavelets = wavelets.real.contiguous().unsqueeze(3)
 
     # Define lists for output.
     out_S_0, out_S_1, out_S_2 = [], [], []
@@ -22,9 +22,9 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
     ## Map to complex
     complex_maps = x.new_zeros(x.shape + (2,))
     complex_maps[..., 0] = x
-
+    
     U_0_c = fft(complex_maps, 'C2C')
-
+    
     # First low pass filter
     U_1_c = cdgmm(U_0_c, phi[0])
     U_1_c = subsample_fourier(U_1_c, k=subsample)
@@ -38,7 +38,6 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
         for n1 in range(int(len(wavelets)/2)):
 
             ## Wavelet convolution
-            
             U_1_c = cdgmm(U_0_c, wavelets[n1])
 
             U_1_c = fft(U_1_c, 'C2C', inverse=True)
@@ -55,7 +54,7 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
 
             if max_order < 2:
                 continue
-            for n2 in range(int(len(psi)/2),len(psi)):
+            for n2 in range(int(len(wavelets)/2),len(wavelets)):
                 
 
                 U_2_c = cdgmm(U_1_c, wavelets[n2])
@@ -114,7 +113,6 @@ def do_convolutions(x, backend, J, phi, wavelets, max_order,
     out_S = concatenate([x['coef'] for x in out_S])
 
     return out_S
-
 
 def convolve_fields(input, backend, J, phi, wavelets, max_order, split_filters, subsample):
     """  
