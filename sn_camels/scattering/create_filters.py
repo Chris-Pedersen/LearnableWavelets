@@ -343,6 +343,9 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
     wavelets = wavelets / norm_factors
 
+    ## Unsqueeze to match dimensions needed by torch backend
+    wavelets=wavelets.unsqueeze(-1)
+
     return wavelets
 
 
@@ -485,6 +488,8 @@ def get_phis(M, N, J):
     for res in range(J):
         phi_signal_fourier_res = periodize_filter_fft_kymat(phi_signal_fourier, res)
         print(phi_signal_fourier_res.shape)
+        ## Unsqueeze to match dimensions needed by torch backend
+        phi_signal_fourier_res=torch.from_numpy(phi_signal_fourier_res).unsqueeze(-1)
         phis.append(phi_signal_fourier_res)
 
     return phis
