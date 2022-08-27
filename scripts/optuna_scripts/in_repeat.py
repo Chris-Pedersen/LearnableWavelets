@@ -125,7 +125,8 @@ class Objective(object):
                 filter_video=False,
                 subsample=4,
                 device=device,
-                use_cuda=True
+                use_cuda=True,
+                plot=False
             )
 
             ## Now create a network to follow the scattering layers
@@ -462,26 +463,20 @@ rot_flip_in_mem = False  #whether rotations and flipings are kept in memory
 smoothing       = 0  ## Smooth the maps with a Gaussian filter? 0 for no
 arch            = "sn" ## Which model architecture to use
 features        = 2
-name            = "IN_maps" ## For wandb and optuna
+name            = "refactor_test" ## For wandb and optuna
 
 ## training parameters
 batch_size  = 32
-epochs      = 200
+epochs      = 50
 num_workers = 10    #number of workers to load data
 
 ## Optuna params
-n_trials=100
+n_trials=3
 
 
-test=Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
-                  arch, features, beta1, beta2, epochs, monopole, 
-                  num_workers, rot_flip_in_mem, smoothing, name)
-test()
-'''
-for n in n_trials:
+for n in range(n_trials):
     test=Objective(device, seed, fmaps, fmaps_norm, fparams, batch_size, splits,
                       arch, features, beta1, beta2, epochs, monopole, 
                       num_workers, rot_flip_in_mem, smoothing, name)
     test()
 
-'''
