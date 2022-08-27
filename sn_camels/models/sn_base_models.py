@@ -182,6 +182,18 @@ class sn_ScatteringBase(nn.Module):
                                               cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
             self.videoWriters['fourier'] = cv2.VideoWriter('videos/scatteringFilterProgressionFourier{}epochs.avi'.format("--"),
                                                  cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
+        ## Register filters as buffers
+        self._register_filters()
+
+    def _register_filters(self):
+        nn=0
+        for phi in self.phi:
+            self.register_buffer('tensor'+str(nn), phi)
+            nn=+1
+        for wavelet in self.wavelets:
+            self.register_buffer('tensor'+str(nn),wavelet)
+            nn=+1
+        print("buffers registered")
 
     def __str__(self):
         tempL = " L" if self.learnable else "NL"
@@ -211,7 +223,7 @@ class sn_ScatteringBase(nn.Module):
         """if were using learnable scattering, update the filters to reflect 
         the new parameter values obtained from gradient descent"""
         if self.learnable:
-            self.wavelets = morlets(self.grid, self.params_filters[0], 
+            self.wavelets = create_filters.morlets(self.grid, self.params_filters[0], 
                                     self.params_filters[1], self.params_filters[2], 
                                     self.params_filters[3], device=self.device)
         else:
@@ -262,7 +274,7 @@ class sn_ScatteringBase(nn.Module):
     ### and is not integral to the operation of the scattering model
     def getFilterViz(self):
         """generates plots of the filters for ['fourier','real', 'imag' ] visualizations"""
-        wavelets=self.wavelets.real.contiguous().unsqueeze(3)
+        wavelets=self.wavelets.contiguous().unsqueeze(3)
         filter_viz = {}
         for mode in ['fourier','real', 'imag' ]: # visualize wavlet filters before training
             f = models_utils.get_filters_visualization(self.wavelets, self.J, 8, mode=mode) 
