@@ -142,36 +142,43 @@ class sn_ScatteringBase(nn.Module):
                 print("Warning: cannot split filters with fixed filters")
 
         ## Generate smoothing and wavelet filters, and register them as module buffers
-        phis = create_filters.get_phis(self.M,self.N,self.J)
-        wavelets, self.params_filters, self.grid = create_filters.create_scatteringExclusive(
+        self.phi = create_filters.get_phis(self.M,self.N,self.J)
+        self.wavelets, self.params_filters, self.grid = create_filters.create_scatteringExclusive(
             J,N,M,max_order, initialization=self.initialization,seed=seed,
             requires_grad=learnable,use_cuda=self.use_cuda,device=self.device
         )
 
-        for phi_n in range(len(phis)):
-            self.register_buffer("phi"+str(phi_n),phis[phi_n])
-        for wavelet_n in range(len(wavelets)):
-            self.register_buffer("wavelet"+str(wavelet_n),wavelets[wavelet_n])
+        ## In order to access the phi and wavelet filters independently, we store
+        ## their indices as buffers. This would be a lot easier if torch just allowed
+        ## you to store buffers as lists, but cest la vie.
+        #self.phi_buffer_indices=[]
+        #self.wavelet_buffer_indices=[]
+        #for phi_n in range(len(phis)):
+        #    self.register_buffer("phi"+str(phi_n),phis[phi_n])
+        #    self.phi_buffer_indices.append(phi_n)
+        #for wavelet_n in range(len(wavelets)):
+        #    self.register_buffer("wavelet"+str(wavelet_n),wavelets[wavelet_n])
+        #    self.wavelet_buffer_indices.append(self.phi_buffer_indices[-1]+1+wavelet_n)
 
         ## Determine number of output fields
         if self.max_order==1:
             if self.skip:
-                self.n_coefficients=1+len(wavelets)
+                self.n_coefficients=1+len(self.wavelets)
             else:
-                self.n_coefficients=len(wavelets)
+                self.n_coefficients=len(self.wavelets)
         if self.max_order==2:
             if self.skip and (self.split_filters==False):
                 ## Include zeroth and first order fields in forward pass output
-                self.n_coefficients=1+len(wavelets)+len(wavelets)**2
+                self.n_coefficients=1+len(self.wavelets)+len(self.wavelets)**2
             elif self.skip==False and self.split_filters==False:
                 ## Drop skip connections - take only the second order fields
-                self.n_coefficients=len(wavelets)**2
+                self.n_coefficients=len(self.wavelets)**2
             elif self.skip and self.split_filters:
                 ## Include zeroth and first order fields in forward pass output
-                self.n_coefficients=int(1+len(wavelets)/2+(len(wavelets)/2)**2)
+                self.n_coefficients=int(1+len(self.wavelets)/2+(len(self.wavelets)/2)**2)
             elif self.skip==False and self.split_filters:
                 ## Drop skip connections - take only the second order fields
-                self.n_coefficients=int((len(wavelets)/2)**2)
+                self.n_coefficients=int((len(self.wavelets)/2)**2)
             
         self.filterTracker = {'1':[],'2':[],'3':[], 'scale':[], 'angle': []}
         self.filterGradTracker = {'angle': [],'1':[],'2':[],'3':[]}
@@ -188,7 +195,7 @@ class sn_ScatteringBase(nn.Module):
                                               cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
             self.videoWriters['fourier'] = cv2.VideoWriter('videos/scatteringFilterProgressionFourier{}epochs.avi'.format("--"),
                                                  cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
-
+    """
     @property
     def phi(self):
         phi_list=[]
@@ -206,7 +213,7 @@ class sn_ScatteringBase(nn.Module):
             if buffer[0][:3]=="wav":
                 wave_list.append(buffer[1])
         return wave_list
-
+    """
     def __str__(self):
         tempL = " L" if self.learnable else "NL"
         tempI = "TF" if self.initialization == 'Tight-Frame' else "R"
@@ -236,16 +243,19 @@ class sn_ScatteringBase(nn.Module):
         the new parameter values obtained from gradient descent"""
         if self.learnable:
             ## Generate new filters
-            wavelets = create_filters.morlets(self.grid, self.params_filters[0], 
+            self.wavelets = create_filters.morlets(self.grid, self.params_filters[0], 
                                               self.params_filters[1], self.params_filters[2], 
                                               self.params_filters[3], device=self.device)
-            wav_counter=0
+            #wav_counter=0
+            #buffer_counter=0
             ## Update buffers with new filters
-            for buffer in self.named_buffers():
+            #for buffer in self.buffers():
             ## Pick out only the wavelets from the named buffers
-                if buffer[0][:3]=="wav":
-                    buffer[1]=wavelets[wav_counter]
-                    wav_counter+=1
+            #    if buffer_counter in self.wavelet_buffer_indices:
+            #        ## Update buffer with new wavelet tensor
+            #        buffer=wavelets[wav_counter]
+            #        wav_counter+=1
+            #    buffer_counter+=1
         else:
             pass
 
