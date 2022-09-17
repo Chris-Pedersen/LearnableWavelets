@@ -58,6 +58,13 @@ class sn_HybridModel(nn.Module):
         return self.scatteringBase.countLearnableParams() \
             + self.top.countLearnableParams()
 
+    def to(self, device):
+        super().to(device) # Call the normal transfer
+        for aa in range(len(self.scatteringBase.wavelets)):
+            self.scatteringBase.wavelets[aa]=self.scatteringBase.wavelets[aa].to(device)
+        for aa in range(len(self.scatteringBase.phi)):
+            self.scatteringBase.phi[aa]=self.scatteringBase.phi[aa].to(device)
+
     def showParams(self):
         """prints shape of all parameters and is_leaf"""
         for x in self.parameters():
