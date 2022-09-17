@@ -64,12 +64,12 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
     params_filters =  [ param.to(device) for param in params_filters]
 
-    wavelets, waves  = morlets(shape, params_filters[0], params_filters[1], 
+    wavelets = morlets(shape, params_filters[0], params_filters[1], 
                     params_filters[2], params_filters[3], device=device )
     
     psi = update_psi(J, psi, wavelets, device) #update psi to reflect the new conv filters
 
-    return scattering, psi, wavelets, params_filters, grid, waves
+    return scattering, psi, wavelets, params_filters, grid
 
 def update_psi(J, psi, wavelets, device):
     """ Update the psi dictionnary with the new wavelets
@@ -249,7 +249,7 @@ def raw_morlets(grid_or_shape, wave_vectors, gaussian_bases, morlet=True, ifftsh
     if fft:
         filters = torch.fft.fftn(filters, dim=signal_dims)
 
-    return filters, waves
+    return filters
 
 def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True, ifftshift=True, fft=True):
     """Creates morlet wavelet filters from inputs
@@ -280,7 +280,7 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
     slant_modifications = (1.0 * indicator + slants[:, np.newaxis] * ~indicator)
     gauss_directions = gauss_directions * slant_modifications[:, :, np.newaxis]
 
-    wavelets, waves = raw_morlets(grid_or_shape, wave_vectors, gauss_directions, morlet=morlet, 
+    wavelets = raw_morlets(grid_or_shape, wave_vectors, gauss_directions, morlet=morlet, 
                           ifftshift=ifftshift, fft=fft)
 
     norm_factors = (2 * 3.1415 * sigmas * sigmas / slants).unsqueeze(1)
@@ -292,7 +292,7 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
     wavelets = wavelets / norm_factors
 
-    return wavelets, waves
+    return wavelets
 
 
 

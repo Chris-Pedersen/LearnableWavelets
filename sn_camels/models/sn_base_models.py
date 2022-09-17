@@ -143,7 +143,7 @@ class sn_ScatteringBase(nn.Module):
             if self.split_filters:
                 print("Warning: cannot split filters with fixed filters")
 
-        self.scattering, self.psi, self.wavelets, self.params_filters, self.grid, self.waves = create_scatteringExclusive(
+        self.scattering, self.psi, self.wavelets, self.params_filters, self.grid = create_scatteringExclusive(
             J,N,M,max_order, initialization=self.initialization,seed=seed,
             requires_grad=learnable,use_cuda=self.use_cuda,device=self.device
         )
@@ -176,7 +176,7 @@ class sn_ScatteringBase(nn.Module):
         self.scatteringTrain = False
 
         if self.monitor_filters == True:
-            _, self.compared_psi, self.compared_wavelets, self.compared_params, _, _ = create_scatteringExclusive(
+            _, self.compared_psi, self.compared_wavelets, self.compared_params, _ = create_scatteringExclusive(
                 J,N,M,max_order, initialization='Tight-Frame',seed=seed,
                 requires_grad=False,use_cuda=self.use_cuda,device=self.device
             )
