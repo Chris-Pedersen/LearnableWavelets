@@ -1,25 +1,6 @@
-"""Helper functions for regenerating the scattering filters on the fly
-
-Authors: Benjamin Therien, Shanel Gauthier, Laurent Alsene-Racicot, Michael Eickenberg
-
-Functions: 
-    construct_scattering         -- Construct the scattering object
-    update_psi                   -- Update the psi dictionnary with the new wavelets
-    get_total_num_filters        -- Compute the total number of filters
-    periodize_filter_fft         -- Periodize the filter in fourier space
-    create_filters_params_random -- Create reusable randomly initialized filter parameters:
-                                    orientations, xis, sigmas, sigmas
-    create_filters_params        -- Create reusable tight frame initialized filter parameters: 
-                                    orientations, xis, sigmas, sigmas
-    raw_morlets                  -- Helper function for creating morlet filters 
-    morlets                      -- Creates morlet wavelet filters from inputs
-
-"""
-
 import sys
 from pathlib import Path 
 import numpy as np
-from sn_camels.scattering import kymat_code
 sys.path.append(str(Path.cwd()))
 import torch
 import scipy.fftpack
@@ -79,39 +60,8 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     wavelets  = morlets(shape, params_filters[0], params_filters[1], 
                     params_filters[2], params_filters[3], device=device)
     
-    #psi = update_psi(J, psi, wavelets, device) #update psi to reflect the new conv filters
-
-    #return scattering, psi, wavelets, params_filters, grid
     return wavelets, params_filters, grid
 
-def update_psi(J, psi, wavelets, device):
-    """ Update the psi dictionary with the new wavelets
-
-        Parameters:
-            J -- scale for the scattering
-            psi -- dictionary of filters
-            wavelets -- wavelet filters
-            device -- device cuda or cpu
-
-        Returns:
-            psi -- dictionnary of filters
-    """
-    wavelets = wavelets.real.contiguous().unsqueeze(3)
-    
-    if J == 2:
-        for i,d in enumerate(psi):
-                d[0] = wavelets[i]
-
-    else:
-        for i,d in enumerate(psi):
-            for res in range(0, J-1):
-                if res in d.keys():
-                    if res == 0:
-                        d[res] = wavelets[i]
-                    else:
-                        d[res] = periodize_filter_fft(wavelets[i].squeeze(2), res).unsqueeze(2)
-                
-    return psi
 
 def get_total_num_filters(J, L):
     """ Compute the total number of filters
