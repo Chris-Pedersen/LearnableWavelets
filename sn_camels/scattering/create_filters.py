@@ -301,115 +301,13 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
     return wavelets
 
-
 ##########################################################################################################
 ###################################### kymatio code  #####################################################
 ##########################################################################################################
-
 def fft2(x):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', FutureWarning)
         return scipy.fftpack.fft2(x)
-
-def filter_bank(M, N, J, L=8):
-    """
-        Builds in Fourier the Morlet filters used for the scattering transform.
-        Each single filter is provided as a dictionary with the following keys:
-        * 'j' : scale
-        * 'theta' : angle used
-        Parameters
-        ----------
-        M, N : int
-            spatial support of the input
-        J : int
-            logscale of the scattering
-        L : int, optional
-            number of angles used for the wavelet transform
-        Returns
-        -------
-        filters : list
-            A two list of dictionary containing respectively the low-pass and
-             wavelet filters.
-        Notes
-        -----
-        The design of the filters is optimized for the value L = 8.
-    """
-    filters = {}
-    filters['psi'] = []
-
-    for j in range(J):
-        for theta in range(L):
-            psi = {}
-            psi['j'] = j
-            psi['theta'] = theta
-            psi_signal = morlet_2d(M, N, 0.8 * 2**j,
-                (int(L-L/2-1)-theta) * np.pi / L,
-                3.0 / 4.0 * np.pi /2**j, 4.0/L)
-            psi_signal_fourier = fft2(psi_signal)
-            # drop the imaginary part, it is zero anyway
-            psi_signal_fourier = np.real(psi_signal_fourier)
-            for res in range(min(j + 1, max(J - 1, 1))):
-                psi_signal_fourier_res = periodize_filter_fft_kymat(
-                    psi_signal_fourier, res)
-                psi[res] = psi_signal_fourier_res
-            filters['psi'].append(psi)
-
-    filters['phi'] = {}
-    phi_signal = gabor_2d(M, N, 0.8 * 2**(J-1), 0, 0)
-    phi_signal_fourier = fft2(phi_signal)
-    # drop the imaginary part, it is zero anyway
-    phi_signal_fourier = np.real(phi_signal_fourier)
-    filters['phi']['j'] = J
-    for res in range(J):
-        phi_signal_fourier_res = periodize_filter_fft_kymat(phi_signal_fourier, res)
-        filters['phi'][res] = phi_signal_fourier_res
-
-    return filters
-
-
-def get_psis(M, N, J, L=8):
-    """
-        Builds in Fourier the Morlet filters used for the scattering transform.
-        Each single filter is provided as a dictionary with the following keys:
-        * 'j' : scale
-        * 'theta' : angle used
-        Parameters
-        ----------
-        M, N : int
-            spatial support of the input
-        J : int
-            logscale of the scattering
-        L : int, optional
-            number of angles used for the wavelet transform
-        Returns
-        -------
-        filters : list
-            A two list of dictionary containing respectively the low-pass and
-             wavelet filters.
-        Notes
-        -----
-        The design of the filters is optimized for the value L = 8.
-    """
-    filters = {}
-    psis = []
-
-    for j in range(J):
-        for theta in range(L):
-            psi = {}
-            psi['j'] = j
-            psi['theta'] = theta
-            psi_signal = morlet_2d(M, N, 0.8 * 2**j,
-                (int(L-L/2-1)-theta) * np.pi / L,
-                3.0 / 4.0 * np.pi /2**j, 4.0/L)
-            psi_signal_fourier = fft2(psi_signal)
-            # drop the imaginary part, it is zero anyway
-            psi_signal_fourier = np.real(psi_signal_fourier)
-            for res in range(min(j + 1, max(J - 1, 1))):
-                psi_signal_fourier_res = periodize_filter_fft_kymat(
-                    psi_signal_fourier, res)
-                psi[res] = psi_signal_fourier_res
-            psis.append(psi)
-    return psis
 
 def get_phis(M, N, J):
     """
@@ -525,4 +423,3 @@ def gabor_2d(M, N, sigma, theta, xi, slant=1.0, offset=0):
     gab /= norm_factor
 
     return gab
-
