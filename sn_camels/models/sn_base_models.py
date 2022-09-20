@@ -23,6 +23,7 @@ from sn_camels.scattering import scattering2d, create_filters
 from sn_camels.models import models_utils
 from sn_camels.scattering import torch_backend
 
+
 class InvalidInitializationException(Exception):
     """Error thrown when an invalid initialization scheme is passed"""
     pass
@@ -148,18 +149,6 @@ class sn_ScatteringBase(nn.Module):
             requires_grad=learnable,use_cuda=self.use_cuda,device=self.device
         )
 
-        ## In order to access the phi and wavelet filters independently, we store
-        ## their indices as buffers. This would be a lot easier if torch just allowed
-        ## you to store buffers as lists, but cest la vie.
-        #self.phi_buffer_indices=[]
-        #self.wavelet_buffer_indices=[]
-        #for phi_n in range(len(phis)):
-        #    self.register_buffer("phi"+str(phi_n),phis[phi_n])
-        #    self.phi_buffer_indices.append(phi_n)
-        #for wavelet_n in range(len(wavelets)):
-        #    self.register_buffer("wavelet"+str(wavelet_n),wavelets[wavelet_n])
-        #    self.wavelet_buffer_indices.append(self.phi_buffer_indices[-1]+1+wavelet_n)
-
         ## Determine number of output fields
         if self.max_order==1:
             if self.skip:
@@ -195,25 +184,7 @@ class sn_ScatteringBase(nn.Module):
                                               cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
             self.videoWriters['fourier'] = cv2.VideoWriter('videos/scatteringFilterProgressionFourier{}epochs.avi'.format("--"),
                                                  cv2.VideoWriter_fourcc(*'DIVX'), 30, (160,160), isColor=True)
-    """
-    @property
-    def phi(self):
-        phi_list=[]
-        for buffer in self.named_buffers():
-            ## Pick out only the phi filters from the named buffers
-            if buffer[0][:3]=="phi":
-                phi_list.append(buffer[1])
-        return phi_list
 
-    @property
-    def wavelets(self):
-        wave_list=[]
-        for buffer in self.named_buffers():
-            ## Pick out only the wavelets from the named buffers
-            if buffer[0][:3]=="wav":
-                wave_list.append(buffer[1])
-        return wave_list
-    """
     def __str__(self):
         tempL = " L" if self.learnable else "NL"
         tempI = "TF" if self.initialization == 'Tight-Frame' else "R"
@@ -246,16 +217,6 @@ class sn_ScatteringBase(nn.Module):
             self.wavelets = create_filters.morlets(self.grid, self.params_filters[0], 
                                               self.params_filters[1], self.params_filters[2], 
                                               self.params_filters[3], device=self.device)
-            #wav_counter=0
-            #buffer_counter=0
-            ## Update buffers with new filters
-            #for buffer in self.buffers():
-            ## Pick out only the wavelets from the named buffers
-            #    if buffer_counter in self.wavelet_buffer_indices:
-            #        ## Update buffer with new wavelet tensor
-            #        buffer=wavelets[wav_counter]
-            #        wav_counter+=1
-            #    buffer_counter+=1
         else:
             pass
 
