@@ -1,27 +1,29 @@
-"""Helper functions for regenerating the scattering filters on the fly
-
-Authors: Benjamin Therien, Shanel Gauthier, Laurent Alsene-Racicot, Michael Eickenberg
-
-Functions: 
-    construct_scattering         -- Construct the scattering object
-    update_psi                   -- Update the psi dictionnary with the new wavelets
-    get_total_num_filters        -- Compute the total number of filters
-    periodize_filter_fft         -- Periodize the filter in fourier space
-    create_filters_params_random -- Create reusable randomly initialized filter parameters:
-                                    orientations, xis, sigmas, sigmas
-    create_filters_params        -- Create reusable tight frame initialized filter parameters: 
-                                    orientations, xis, sigmas, sigmas
-    raw_morlets                  -- Helper function for creating morlet filters 
-    morlets                      -- Creates morlet wavelet filters from inputs
-
-"""
-
 import sys
 from pathlib import Path 
 import numpy as np
-from kymatio import Scattering2D
 sys.path.append(str(Path.cwd()))
 import torch
+import scipy.fftpack
+import warnings
+
+def initialise_filters(M,N,num_first_order,num_second_order,initialization,seed,device,
+                                                                requires_grad,use_cuda):
+    """ Initialise wavelet filters """
+
+    ## Set up grid to generate filters
+    shape = (scattering.M, scattering.N,)
+    ranges = [torch.arange(-(s // 2), -(s // 2) + s, device=device, dtype=torch.float) for s in shape]
+    grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
+    params_filters_first = create_filters_params_random(num_first_order,requires_grad,device,seed)
+    params_filters_second = create_filters_params_random(num_second_order,requires_grad,device,seed)
+
+    wavelets_first  = morlets(shape, params_filters_first[0], params_filters_first[1], 
+                    params_filters_first[2], params_filters_first[3], device=device)
+    wavelets_second  = morlets(shape, params_filters_second[0], params_filters_second[1], 
+                    params_filters_second[2], params_filters_second[3], device=device)
+
+
+
 
 def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requires_grad=True,use_cuda=True):
     """Creates scattering parameters and replaces then with the specified initialization
@@ -39,66 +41,27 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     seed -- the seed used for creating randomly initialized filters
     requires_grad -- boolean idicating whether we want to learn params
     """
-    scattering = Scattering2D(J=J, shape=(M, N), max_order=max_order, 
-                              frontend='torch',pre_pad=True)
 
-    L = scattering.L
-
-    if use_cuda:
-        scattering = scattering.cuda()
-
-    phi, psi  = scattering.load_filters()
-    
     params_filters = []
 
     if initialization == "Tight-Frame":
         params_filters = create_filters_params(J,L,requires_grad,device) #kymatio init
     elif initialization == "Random":
-        num_filters= J*L
+        num_filters= J*8 ## temporarily hardcoded
         params_filters = create_filters_params_random(num_filters,requires_grad,device,seed) #random init
     else:
         raise InvalidInitializationException
 
-    shape = (scattering.M, scattering.N,)
+    shape = (M, N,)
     ranges = [torch.arange(-(s // 2), -(s // 2) + s, device=device, dtype=torch.float) for s in shape]
     grid = torch.stack(torch.meshgrid(*ranges), 0).to(device)
     params_filters =  [ param.to(device) for param in params_filters]
 
-    wavelets = morlets(shape, params_filters[0], params_filters[1], 
-                    params_filters[2], params_filters[3], device=device )
+    wavelets  = morlets(shape, params_filters[0], params_filters[1], 
+                    params_filters[2], params_filters[3], device=device)
     
-    psi = update_psi(J, psi, wavelets, device) #update psi to reflect the new conv filters
+    return wavelets, params_filters, grid
 
-    return scattering, psi, wavelets, params_filters, grid
-
-def update_psi(J, psi, wavelets, device):
-    """ Update the psi dictionnary with the new wavelets
-
-        Parameters:
-            J -- scale for the scattering
-            psi -- dictionnary of filters
-            wavelets -- wavelet filters
-            device -- device cuda or cpu
-
-        Returns:
-            psi -- dictionnary of filters
-    """
-    wavelets = wavelets.real.contiguous().unsqueeze(3)
-    
-    if J == 2:
-        for i,d in enumerate(psi):
-                d[0] = wavelets[i]
-
-    else:
-        for i,d in enumerate(psi):
-            for res in range(0, J-1):
-                if res in d.keys():
-                    if res == 0:
-                        d[res] = wavelets[i]
-                    else:
-                        d[res] = periodize_filter_fft(wavelets[i].squeeze(2), res, device).unsqueeze(2)
-                
-    return psi
 
 def get_total_num_filters(J, L):
     """ Compute the total number of filters
@@ -115,13 +78,12 @@ def get_total_num_filters(J, L):
         num_filters += j *L
     return num_filters  
 
-def periodize_filter_fft(x, res, device):
+def periodize_filter_fft(x, res):
     """ Periodize the filter in fourier space
 
         Parameters:
             x -- signal to periodize in Fourier 
             res -- resolution to which the signal is cropped
-            device -- device cuda or cpu
             
 
         Returns:
@@ -132,6 +94,42 @@ def periodize_filter_fft(x, res, device):
     s1, s2 = x.shape
     periodized = x.reshape(res*2, s1// 2**res, res*2, s2//2**res).mean(dim=(0,2))
     return periodized 
+
+def periodize_filter_fft_kymat(x, res):
+    """
+        Parameters
+        ----------
+        x : numpy array
+            signal to periodize in Fourier
+        res :
+            resolution to which the signal is cropped.
+        Returns
+        -------
+        crop : numpy array
+            It returns a crop version of the filter, assuming that
+             the convolutions will be done via compactly supported signals.
+    """
+    M = x.shape[0]
+    N = x.shape[1]
+
+    crop = np.zeros((M // 2 ** res, N // 2 ** res), x.dtype)
+
+    mask = np.ones(x.shape, np.float32)
+    len_x = int(M * (1 - 2 ** (-res)))
+    start_x = int(M * 2 ** (-res - 1))
+    len_y = int(N * (1 - 2 ** (-res)))
+    start_y = int(N * 2 ** (-res - 1))
+    mask[start_x:start_x + len_x,:] = 0
+    mask[:, start_y:start_y + len_y] = 0
+    x = np.multiply(x,mask)
+
+    for k in range(int(M / 2 ** res)):
+        for l in range(int(N / 2 ** res)):
+            for i in range(int(2 ** res)):
+                for j in range(int(2 ** res)):
+                    crop[k, l] += x[k + i * int(M / 2 ** res), l + j * int(N / 2 ** res)]
+
+    return crop
 
 def create_filters_params_random(n_filters, is_scattering_dif, device, seed):
     """ Create reusable randomly initialized filter parameters: orientations, xis, sigmas, sigmas     
@@ -202,6 +200,9 @@ def create_filters_params(J, L, is_scattering_dif, device):
     return  params
 
 
+##########################################################################################################
+########################################   PSN code  #####################################################
+##########################################################################################################
 def raw_morlets(grid_or_shape, wave_vectors, gaussian_bases, morlet=True, ifftshift=True, fft=True):
     """ Helper function for creating morlet filters
 
@@ -216,7 +217,7 @@ def raw_morlets(grid_or_shape, wave_vectors, gaussian_bases, morlet=True, ifftsh
         Returns:
             filters -- the wavelet filters before normalization
             
-    """
+    """ 
     n_filters, n_dim = wave_vectors.shape
     assert gaussian_bases.shape == (n_filters, n_dim, n_dim)
     device = wave_vectors.device
@@ -292,7 +293,98 @@ def morlets(grid_or_shape, theta, xis, sigmas, slants, device=None, morlet=True,
 
     wavelets = wavelets / norm_factors
 
+    ## Drop imaginary part, is is zero anyway
+    wavelets=wavelets.real
+
+    ## Unsqueeze to match dimensions needed by torch backend
+    wavelets=wavelets.contiguous().unsqueeze(-1)
+
     return wavelets
 
+##########################################################################################################
+###################################### kymatio code  #####################################################
+##########################################################################################################
+def fft2(x):
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        return scipy.fftpack.fft2(x)
+
+def get_phis(M, N, J):
+    """
+        Builds in Fourier the Morlet filters used for the scattering transform.
+        Each single filter is provided as a dictionary with the following keys:
+        * 'j' : scale
+        * 'theta' : angle used
+        Parameters
+        ----------
+        M, N : int
+            spatial support of the input
+        J : int
+            logscale of the scattering
+        Returns
+        -------
+        filters : list
+            A two list of dictionary containing respectively the low-pass and
+             wavelet filters.
+        Notes
+        -----
+        The design of the filters is optimized for the value L = 8.
+    """
+
+    phis = []
+    phi_signal = gabor_2d(M, N, 0.8 * 2**(J-1), 0, 0)
+    phi_signal_fourier = fft2(phi_signal)
+    # drop the imaginary part, it is zero anyway
+    phi_signal_fourier = np.real(phi_signal_fourier)
+    for res in range(J):
+        phi_signal_fourier_res = periodize_filter_fft_kymat(phi_signal_fourier, res)
+        ## Unsqueeze to match dimensions needed by torch backend
+        phi_signal_fourier_res=torch.from_numpy(phi_signal_fourier_res).unsqueeze(-1)
+        phis.append(phi_signal_fourier_res)
+
+    return phis
 
 
+
+def gabor_2d(M, N, sigma, theta, xi, slant=1.0, offset=0):
+    """
+        Computes a 2D Gabor filter.
+        A Gabor filter is defined by the following formula in space:
+        psi(u) = g_{sigma}(u) e^(i xi^T u)
+        where g_{sigma} is a Gaussian envelope and xi is a frequency.
+        Parameters
+        ----------
+        M, N : int
+            spatial sizes
+        sigma : float
+            bandwidth parameter
+        xi : float
+            central frequency (in [0, 1])
+        theta : float
+            angle in [0, pi]
+        slant : float, optional
+            parameter which guides the elipsoidal shape of the morlet
+        offset : int, optional
+            offset by which the signal starts
+        Returns
+        -------
+        morlet_fft : ndarray
+            numpy array of size (M, N)
+    """
+    gab = np.zeros((M, N), np.complex64)
+    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]], np.float32)
+    R_inv = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]], np.float32)
+    D = np.array([[1, 0], [0, slant * slant]])
+    curv = np.dot(R, np.dot(D, R_inv)) / ( 2 * sigma * sigma)
+
+    for ex in [-2, -1, 0, 1, 2]:
+        for ey in [-2, -1, 0, 1, 2]:
+            [xx, yy] = np.mgrid[offset + ex * M:offset + M + ex * M, offset + ey * N:offset + N + ey * N]
+            arg = -(curv[0, 0] * np.multiply(xx, xx) + (curv[0, 1] + curv[1, 0]) * np.multiply(xx, yy) + curv[
+                1, 1] * np.multiply(yy, yy)) + 1.j * (xx * xi * np.cos(theta) + yy * xi * np.sin(theta))
+            gab += np.exp(arg)
+
+    norm_factor = (2 * 3.1415 * sigma * sigma / slant)
+    gab /= norm_factor
+
+    return gab

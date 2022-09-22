@@ -2,7 +2,7 @@ import torch
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import numpy as np
-import sys, os, time, optuna
+import sys, os, time
 import torchvision.utils as vutils
 import scipy.ndimage
 import sn_camels.camels.utils as U
