@@ -345,40 +345,6 @@ def get_phis(M, N, J):
 
     return phis
 
-def morlet_2d(M, N, sigma, theta, xi, slant=0.5, offset=0):
-    """
-        Computes a 2D Morlet filter.
-        A Morlet filter is the sum of a Gabor filter and a low-pass filter
-        to ensure that the sum has exactly zero mean in the temporal domain.
-        It is defined by the following formula in space:
-        psi(u) = g_{sigma}(u) (e^(i xi^T u) - beta)
-        where g_{sigma} is a Gaussian envelope, xi is a frequency and beta is
-        the cancelling parameter.
-        Parameters
-        ----------
-        M, N : int
-            spatial sizes
-        sigma : float
-            bandwidth parameter
-        xi : float
-            central frequency (in [0, 1])
-        theta : float
-            angle in [0, pi]
-        slant : float, optional
-            parameter which guides the elipsoidal shape of the morlet
-        offset : int, optional
-            offset by which the signal starts
-        Returns
-        -------
-        morlet_fft : ndarray
-            numpy array of size (M, N)
-    """
-    wv = gabor_2d(M, N, sigma, theta, xi, slant, offset)
-    wv_modulus = gabor_2d(M, N, sigma, theta, 0, slant, offset)
-    K = np.sum(wv) / np.sum(wv_modulus)
-
-    mor = wv - K * wv_modulus
-    return mor
 
 
 def gabor_2d(M, N, sigma, theta, xi, slant=1.0, offset=0):
