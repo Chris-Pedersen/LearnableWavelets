@@ -1,5 +1,8 @@
 # Wavelets
-Applying learnable scattering networks to CAMELs fields and compare inference performance with standard CNN. Uses `pytorch` and `kymatio`, as of March 8th 2022 this requires my own `kymatio` branch at https://github.com/Chris-Pedersen/kymatio, due to padding issues in the standard library.
+Learnable scattering networks.
+
+
+Code used in the ICML Machine learning for astronomy workshop paper "Learnable Wavelet Neural Networks for Cosmological Inference" (https://ml4astro.github.io/icml2022/assets/40.pdf). The version of the code used to generate results for this paper is here, and requires a custom version of the scattering transform code `kymatio` at https://github.com/Chris-Pedersen/kymatio, due to padding issues in the standard library.
 
 Most of the `models` code is lifted from https://github.com/bentherien/ParametricScatteringNetworks/, and most of the CAMELs code is lifted from https://camels-multifield-dataset.readthedocs.io/en/latest/.
 
