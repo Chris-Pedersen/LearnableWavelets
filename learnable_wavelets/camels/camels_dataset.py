@@ -5,7 +5,7 @@ import numpy as np
 import sys, os, time
 import torchvision.utils as vutils
 import scipy.ndimage
-import sn_camels.camels.utils as U
+import learnable_wavelets.camels.utils as U
 
 
 # This routine takes set of maps and smooth them with a Gaussian kernel

@@ -9,11 +9,11 @@ import time, sys, os
 import matplotlib.pyplot as plt
 
 # my modules
-from sn_camels.models.models_factory import baseModelFactory, topModelFactory
-from sn_camels.models.sn_hybrid_models import sn_HybridModel
-from sn_camels.models.camels_models import model_o3_err
-from sn_camels.camels.camels_dataset import *
-from sn_camels.utils.test_model import test_model
+from learnable_wavelets.models.models_factory import baseModelFactory, topModelFactory
+from learnable_wavelets.models.sn_hybrid_models import sn_HybridModel
+from learnable_wavelets.models.camels_models import model_o3_err
+from learnable_wavelets.camels.camels_dataset import *
+from learnable_wavelets.utils.test_model import test_model
 
 """ Base script to test a scattering network on a CAMELs dataset """
 

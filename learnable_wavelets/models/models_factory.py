@@ -11,8 +11,8 @@ Exceptions:
 """
 
 
-from sn_camels.models.sn_base_models import sn_Identity, sn_ScatteringBase
-from sn_camels.models.sn_top_models import sn_CNN, sn_MLP, sn_LinearLayer, sn_Resnet50
+from learnable_wavelets.models.sn_base_models import sn_Identity, sn_ScatteringBase
+from learnable_wavelets.models.sn_top_models import sn_CNN, sn_MLP, sn_LinearLayer, sn_Resnet50
 
 class InvalidArchitectureError(Exception):
     """Error thrown when an invalid architecture name is passed"""
