@@ -19,9 +19,9 @@ import cv2
 
 import torch.nn as nn
 
-from sn_camels.scattering import scattering2d, create_filters
-from sn_camels.models import models_utils
-from sn_camels.scattering import torch_backend
+from learnable_wavelets.scattering import scattering2d, create_filters
+from learnable_wavelets.models import models_utils
+from learnable_wavelets.scattering import torch_backend
 
 
 class InvalidInitializationException(Exception):

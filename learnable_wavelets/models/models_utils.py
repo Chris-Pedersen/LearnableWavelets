@@ -12,7 +12,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
-from sn_camels.scattering.create_filters import morlets
+from learnable_wavelets.scattering.create_filters import morlets
 
 
 def get_filters_visualization(psi, J, L, mode ='fourier'):
