@@ -14,6 +14,7 @@ and install the `learnable_wavelet` package via
 
 `pip install .`
 
+### Running example notebook
 NB to run the `playground/example_notebook.ipynb`, first run the following to download the small sample of CAMELs data:
 
 `wget -O test_data/maps_Mtot_1k.npy "https://www.dropbox.com/s/oqy3h3l4cdgfdeq/maps_Mtot_1k.npy?dl=0"`
