@@ -1,13 +1,20 @@
-name: wavelet_test
-
+name: wavelet
+channels:
+  - pyg
+  - pytorch
+  - bioconda
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.9
   - matplotlib
   - scipy
   - opencv
   - ipykernel
+  - pytorch
+  - torchvision
   - pip
   - pip:
     - wandb
     - optuna
-    - numpy==1.19.5
+    - numpy

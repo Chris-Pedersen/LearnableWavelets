@@ -1,7 +1,18 @@
 # Learnable Wavelet Networks
 Scattering convolutional networks with learnable filter parameters implemented in PyTorch.
 
-`torch` version `1.10.2`
+### Set up environment in `conda`
+If using conda, set up an environment in the following way:
+
+`conda env create -f environment.yml`
+
+Once installed, activate the environment:
+
+`conda activate wavelet`
+
+and install the `learnable_wavelet` package via
+
+`pip install .`
 
 NB to run the `playground/example_notebook.ipynb`, first run the following to download the small sample of CAMELs data:
 
