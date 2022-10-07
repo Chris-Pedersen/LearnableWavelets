@@ -1,0 +1,14 @@
+name: wavelet_test
+
+dependencies:
+  - python=3.9
+  - matplotlib
+  - scipy
+  - opencv
+  - numpy
+  - pip
+  - pip:
+    - wandb
+    - optuna
+    - warnings
+
