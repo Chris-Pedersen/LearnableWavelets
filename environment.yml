@@ -5,10 +5,9 @@ dependencies:
   - matplotlib
   - scipy
   - opencv
-  - numpy
+  - ipykernel
   - pip
   - pip:
     - wandb
     - optuna
-    - warnings
-
+    - numpy==1.19.5
