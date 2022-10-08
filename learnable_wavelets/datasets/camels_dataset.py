@@ -3,9 +3,7 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import numpy as np
 import sys, os, time
-import torchvision.utils as vutils
 import scipy.ndimage
-import learnable_wavelets.camels.utils as U
 
 
 # This routine takes set of maps and smooth them with a Gaussian kernel
@@ -154,8 +152,6 @@ class make_dataset_multifield2():
         self.x    = torch.tensor(data,   dtype=torch.float32)
         self.y    = torch.tensor(params, dtype=torch.float32)
         del data, data_c
-
-        #vutils.save_image(self.x, 'images.png', nrow=10, normalize=True)
 
     def __len__(self):
         return self.size
@@ -319,8 +315,6 @@ class make_dataset_multifield():
         self.y    = torch.tensor(params, dtype=torch.float32)
         del data, data_c
 
-        #vutils.save_image(self.x, 'images.png', nrow=10, normalize=True)
-
     def __len__(self):
         return self.size
 
@@ -446,8 +440,6 @@ class make_dataset():
         self.size = data_all.shape[0]
         self.x    = torch.unsqueeze(torch.tensor(data_all, dtype=torch.float32),1)
         self.y    = torch.tensor(params_all, dtype=torch.float32)
-
-        #vutils.save_image(self.x, 'images.png', nrow=10, normalize=True)
 
     def __len__(self):
         return self.size
