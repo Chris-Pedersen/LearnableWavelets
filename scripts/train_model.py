@@ -124,7 +124,7 @@ if arch=="sn":
         max_order=2,
         initialization="Random",
         seed=234,
-        learnable=True,
+        learnable=False,
         lr_orientation=lr_sn,
         lr_scattering=lr_sn,
         skip=True,
