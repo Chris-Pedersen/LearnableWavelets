@@ -1,6 +1,5 @@
 name: wavelet
 channels:
-  - pyg
   - pytorch
   - bioconda
   - conda-forge
