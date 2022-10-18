@@ -1,16 +1,3 @@
-"""Contains the factories for selecting different models
-
-Author: Benjamin Therien
-
-Functions: 
-    baseModelFactory -- Factory for the creation of the first part of a hybrid model
-    topModelFactory -- Factory for the creation of seconds part of a hybrid model
-
-Exceptions:
-    InvalidArchitectureError -- Error thrown when an invalid architecture name is passed
-"""
-
-
 from learnable_wavelets.models.sn_base_models import sn_Identity, sn_ScatteringBase
 from learnable_wavelets.models.sn_top_models import sn_CNN, sn_MLP, sn_LinearLayer, sn_Resnet50
 
@@ -21,26 +8,27 @@ class InvalidArchitectureError(Exception):
 
 def baseModelFactory(architecture, J, N, M, channels, max_order, initialization, seed, device, 
                      learnable=True, lr_orientation=0.1, lr_scattering=0.1, skip=True,
-                     split_filters=False, subsample=1, filter_video=False,
+                     split_filters=False, subsample=1,
                      use_cuda=True,plot=True):
-    """Factory for the creation of the first layer of a hybrid model
+    """ Factory for the creation of the first layer of a hybrid model
     
         parameters: 
-            J -- scale of scattering (always 2 for now)
-            N -- height of the input image
-            M -- width of the input image
-            second_order -- 
-            initilization -- the type of init: ['Tight-Frame' or 'Random']
-            seed -- the random seed used to initialize the parameters
-            device -- the device to place weights on
-            learnable -- should the filters be learnable parameters of this model
-            lr_orientation -- learning rate for the orientation of the scattering parameters
-            lr_scattering -- learning rate for scattering parameters other than orientation
-            skip -- whether or not to include skip connections when using learnable filters
-            split_filters -- split first and second order filters      
-            subsample -- amount to subsample the output fields           
-            monitor_filters -- boolean indicating whether to track filter distances from initialization
-            use_cuda -- True if using GPU
+            J              -- Ccale of scattering (always 2 for now - this parameter is being phased out)
+            N              -- Height of the input image
+            M              -- Width of the input image
+            channels       -- Number of different input fields
+            max_order      -- Highest order of wavelet scattering
+            initilization  -- Wavelet initialisation ['Tight-Frame' or 'Random']
+            seed           -- The random seed used to initialize the parameters
+            device         -- The device to place weights on
+            learnable      -- Learn wavelet parameters, bool
+            lr_orientation -- Learning rate for the orientation of the scattering parameters
+            lr_scattering  -- Learning rate for scattering parameters other than orientation
+            skip           -- Whether or not to include skip connections when using learnable filters
+            split_filters  -- True to use different wavelets for first and second order scattering     
+            subsample      -- Amount of downsampling at each wavelet convolution step
+            use_cuda       -- True if using GPU
+            plot           -- Plot wavelets when creating the scattering module
     """
 
     if architecture.lower() == 'identity':
@@ -61,7 +49,6 @@ def baseModelFactory(architecture, J, N, M, channels, max_order, initialization,
             skip=skip,
             split_filters=split_filters,
             subsample=subsample,
-            filter_video=filter_video,
             device=device,
             use_cuda=use_cuda,
             plot=plot
@@ -72,9 +59,8 @@ def baseModelFactory(architecture, J, N, M, channels, max_order, initialization,
         raise InvalidArchitectureError()
 
 
-
 def topModelFactory(base, architecture, num_classes, width=8, average=False, use_cuda=True):
-    """Factory for the creation of seconds part of a hybrid model
+    """ Factory for the creation of second part of a hybrid model
     
     parameters:
         base         -- (Pytorch nn.Module) the first part of a hybrid model

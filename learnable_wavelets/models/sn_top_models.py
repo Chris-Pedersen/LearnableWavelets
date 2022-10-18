@@ -1,29 +1,27 @@
-"""Contains all the 'top' pytorch NN.modules for this project
-
-Authors: Benjamin Therien, Shanel Gauthier
-
-Functions: 
-    conv3x3              -- 3x3 convolution with padding
-    countLearnableParams -- returns the amount of learnable parameters in this model
-
-Classes: 
-    sn_CNN         -- CNN fitted for scattering input
-    sn_LinearLayer -- Linear layer fitted for scattering input
-    sn_MLP         -- Multilayer perceptron fitted for scattering input
-    BasicBlock     -- Standard wideresnet basicblock
-    Resnet50       --Pretrained resnet-50 on ImageNet
-"""
-
 from torchvision import models
 import torch
 import torch.nn as nn
 
+"""
+"Top" models that form the second part of the network, after the scattering layer(s)
+"""
 
 class sn_MLP(nn.Module):
     """
        Multilayer perceptron fitted for scattering input
     """
     def __init__(self, num_classes, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
+        """Constructor for a multi layer perceptron
+        
+        Creates scattering filters and adds them to the nn.parameters if learnable
+        
+            parameters: 
+                num_classes    -- Number of output features
+                n_coefficients -- Number of input fields
+                M_coefficient  -- Size of input fields in x direction
+                N_coefficient  -- Size of input fields in y direction 
+                use_cuda       -- use cuda?
+        """
         super(sn_MLP,self).__init__()
         self.num_classes=num_classes
         self.average=False ## Not implemented yet
@@ -54,7 +52,6 @@ class sn_MLP(nn.Module):
         for t in self.parameters():
             count += t.numel()
         return count
-
 
 
 class sn_LinearLayer(nn.Module):
