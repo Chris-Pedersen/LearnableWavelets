@@ -45,7 +45,7 @@ def create_scatteringExclusive(J,N,M,max_order,device,initialization,seed=0,requ
     params_filters = []
 
     if initialization == "Tight-Frame":
-        params_filters = create_filters_params(J,L,requires_grad,device) #kymatio init
+        params_filters = create_filters_params(J,8,requires_grad,device) #kymatio init
     elif initialization == "Random":
         num_filters= J*8 ## temporarily hardcoded
         params_filters = create_filters_params_random(num_filters,requires_grad,device,seed) #random init
