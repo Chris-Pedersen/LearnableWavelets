@@ -11,8 +11,6 @@ def baseModelFactory(architecture, J, N, M, channels, max_order, initialization,
                      split_filters=False, subsample=1,
                      use_cuda=True,plot=True):
     """ Factory for the creation of the first layer of a hybrid model
-    
-        parameters: 
             J              -- Ccale of scattering (always 2 for now - this parameter is being phased out)
             N              -- Height of the input image
             M              -- Width of the input image
@@ -61,8 +59,6 @@ def baseModelFactory(architecture, J, N, M, channels, max_order, initialization,
 
 def topModelFactory(base, architecture, num_classes, width=8, average=False, use_cuda=True):
     """ Factory for the creation of second part of a hybrid model
-    
-    parameters:
         base         -- (Pytorch nn.Module) the first part of a hybrid model
         architecture -- the name of the top model to select
         num_classes  -- number of classes in dataset
@@ -74,7 +70,7 @@ def topModelFactory(base, architecture, num_classes, width=8, average=False, use
 
     if architecture.lower() == 'cnn':
         return sn_CNN(
-            base.n_coefficients*base.channels, k=width, num_classes=num_classes, standard=False
+            base.n_coefficients*base.channels, k=width, num_classes=num_classes
         )
 
     elif architecture.lower() == 'mlp':

@@ -12,10 +12,7 @@ class sn_MLP(nn.Module):
     """
     def __init__(self, num_classes, n_coefficients=81, M_coefficient=8, N_coefficient=8, use_cuda=True):
         """Constructor for a multi layer perceptron
-        
-        Creates scattering filters and adds them to the nn.parameters if learnable
-        
-            parameters: 
+
                 num_classes    -- Number of output features
                 n_coefficients -- Number of input fields
                 M_coefficient  -- Size of input fields in x direction
@@ -58,8 +55,17 @@ class sn_LinearLayer(nn.Module):
     """
     Linear layer fitted for scattering input
     """
-    def __init__(self, num_classes=10, n_coefficients=81, M_coefficient=8, N_coefficient=8,
+    def __init__(self, num_classes, n_coefficients, M_coefficient, N_coefficient,
                     average=False, use_cuda=True):
+        """Constructor for a linear layer
+
+                num_classes    -- Number of output features
+                n_coefficients -- Number of input fields
+                M_coefficient  -- Size of input fields in x direction
+                N_coefficient  -- Size of input fields in y direction
+                average        -- bool: True if the input fields are spatially averaged
+                use_cuda       -- use cuda?
+        """
         super(sn_LinearLayer,self).__init__()
         self.n_coefficients=n_coefficients
         self.num_classes=num_classes
@@ -139,7 +145,7 @@ class sn_CNN(nn.Module):
     CNN fitted for scattering input
     Model from: https://github.com/kymatio/kymatio/blob/master/examples/2d/cifar_small_sample.py 
     """
-    def __init__(self, in_channels, k=8, n=4, num_classes=10, standard=False):
+    def __init__(self, in_channels, k=8, n=4, num_classes=10):
         super(sn_CNN, self).__init__()
 
         self.bn0 = nn.BatchNorm2d(in_channels,eps=1e-5,affine=True)
@@ -150,26 +156,15 @@ class sn_CNN(nn.Module):
         self.in_channels=in_channels
         self.num_classes=num_classes
         in_channels=in_channels
-        if standard:
 
-            self.init_conv = nn.Sequential(
-                nn.Conv2d(1, self.ichannels,
-                          kernel_size=3, stride=1, padding=1, bias=False),
-                nn.BatchNorm2d(self.ichannels),
-                nn.ReLU(True)
-            )
-            self.layer1 = self._make_layer(BasicBlock, 16 * k, n)
-            self.standard = True
-        else:
-            self.K = in_channels
-            self.init_conv = nn.Sequential(
-                nn.BatchNorm2d(in_channels, eps=1e-5, affine=False),
-                nn.Conv2d(in_channels, self.ichannels,
-                      kernel_size=3, stride=1, padding=1, bias=False),
-                nn.BatchNorm2d(self.ichannels),
-                nn.ReLU(True)
-            )
-            self.standard = False
+        self.K = in_channels
+        self.init_conv = nn.Sequential(
+            nn.BatchNorm2d(in_channels, eps=1e-5, affine=False),
+            nn.Conv2d(in_channels, self.ichannels,
+                    kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(self.ichannels),
+            nn.ReLU(True)
+        )
 
         self.layer2 = self._make_layer(BasicBlock, 32 * k, n)
         self.layer3 = self._make_layer(BasicBlock, 64 * k, n)
@@ -193,8 +188,6 @@ class sn_CNN(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        if not self.standard:
-            pass
         x = self.bn0(x)
         x = self.init_conv(x)
         if self.standard:
